@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "25930876909",
+    "project_id": "pythonbrowser-23b14",
+    "storage_bucket": "pythonbrowser-23b14.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:25930876909:android:d6018a28cefe9057f309e4",
+        "android_client_info": {
+          "package_name": "com.example.datanest"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmmlWgXW_TB2hHU0lQ7Xv-jPoo9FsxuDE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
