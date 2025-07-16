@@ -517,6 +517,32 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
           onChanged: (val) => setState(() => formData[field.name] = val),
           isImage: field.type == 'image',
         );
+      case 'relation':
+        // For now, simulate relation by letting user pick a record from the target section
+        final targetSectionId = field.relations?['section'];
+        List<Record> relatedRecords = [];
+        if (targetSectionId != null) {
+          try {
+            final relatedController = Get.put(
+                RecordController(sectionId: targetSectionId),
+                tag: targetSectionId);
+            relatedRecords = relatedController.records;
+          } catch (_) {}
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: DropdownButtonFormField<String>(
+            value: formData[field.name],
+            decoration: InputDecoration(labelText: field.name + ' (Relation)'),
+            items: relatedRecords.map((rec) {
+              final display = rec.data.keys.isNotEmpty
+                  ? rec.data.values.first.toString()
+                  : rec.id;
+              return DropdownMenuItem(value: rec.id, child: Text(display));
+            }).toList(),
+            onChanged: (val) => setState(() => formData[field.name] = val),
+          ),
+        );
       // Advanced/unsupported types
       case 'computed':
       case 'relation':
