@@ -602,12 +602,13 @@ class _RecordListPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final recordController = Get.put(
-      // ignore: unnecessary_cast
-      Get.find<dynamic>(tag: sectionId) ??
-          Get.put(RecordController(sectionId: sectionId), tag: sectionId),
-      tag: sectionId,
-    ) as RecordController;
+    RecordController recordController;
+    try {
+      recordController = Get.find<RecordController>(tag: sectionId);
+    } catch (_) {
+      recordController =
+          Get.put(RecordController(sectionId: sectionId), tag: sectionId);
+    }
     final fieldController = Get.find<FieldController>(tag: sectionId);
     final fields = fieldController.fields;
     final records = recordController.records.take(3).toList();
