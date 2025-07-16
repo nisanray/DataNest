@@ -5,6 +5,8 @@ import '../controllers/field_controller.dart';
 import '../controllers/section_controller.dart';
 import 'section_create_view.dart' show sectionIcons;
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import '../controllers/record_controller.dart';
+import 'package:collection/collection.dart';
 
 class SettingsTab extends StatefulWidget {
   final Section section;
@@ -525,6 +527,23 @@ class _SettingsTabState extends State<SettingsTab> {
                       onPressed: _saveSettings,
                     ),
                   ),
+                  const SizedBox(height: 32),
+                  // Record List Preview
+                  Text('Record List Preview',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: Colors.deepPurple)),
+                  const SizedBox(height: 12),
+                  _RecordListPreview(
+                    sectionId: widget.section.id,
+                    fieldOrder: fieldOrder,
+                    visibleFields:
+                        List<String>.from(settings['visibleFields'] ?? []),
+                    fieldDisplay: fieldDisplay,
+                    fieldAlignment: fieldAlignment,
+                    fieldColor: fieldColor,
+                  ),
                 ],
               ),
             ),
@@ -561,5 +580,123 @@ class _SettingsTabState extends State<SettingsTab> {
     sectionController.editSection(widget.section.id, updatedSection);
     Get.snackbar('Success', 'Section settings updated',
         snackPosition: SnackPosition.BOTTOM);
+  }
+}
+
+class _RecordListPreview extends StatelessWidget {
+  final String sectionId;
+  final List<String> fieldOrder;
+  final List<String> visibleFields;
+  final Map<String, dynamic> fieldDisplay;
+  final Map<String, dynamic> fieldAlignment;
+  final Map<String, dynamic> fieldColor;
+
+  const _RecordListPreview({
+    required this.sectionId,
+    required this.fieldOrder,
+    required this.visibleFields,
+    required this.fieldDisplay,
+    required this.fieldAlignment,
+    required this.fieldColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final recordController = Get.put(
+      // ignore: unnecessary_cast
+      Get.find<dynamic>(tag: sectionId) ??
+          Get.put(RecordController(sectionId: sectionId), tag: sectionId),
+      tag: sectionId,
+    ) as RecordController;
+    final fieldController = Get.find<FieldController>(tag: sectionId);
+    final fields = fieldController.fields;
+    final records = recordController.records.take(3).toList();
+    if (records.isEmpty) {
+      return const Text('No records yet. Add some records to see a preview.');
+    }
+    return Column(
+      children: records.map((record) {
+        return Card(
+          elevation: 2,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: fieldOrder
+                  .where((fieldName) =>
+                      visibleFields.contains(fieldName) &&
+                      (fieldDisplay[fieldName] ?? 'Normal') != 'Hidden')
+                  .map((fieldName) {
+                final field =
+                    fields.firstWhereOrNull((f) => f.name == fieldName);
+                if (field == null) return const SizedBox.shrink();
+                final value = record.data[field.name];
+                final display = fieldDisplay[field.name] ?? 'Normal';
+                final align = fieldAlignment[field.name] ?? 'Left';
+                final colorHex = fieldColor[field.name] ?? '#00000000';
+                final color = _parseColor(colorHex);
+                TextAlign textAlign = TextAlign.left;
+                if (align == 'Center') textAlign = TextAlign.center;
+                if (align == 'Right') textAlign = TextAlign.right;
+                FontWeight fontWeight = FontWeight.normal;
+                if (display == 'Bold') fontWeight = FontWeight.bold;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.label,
+                              size: 18, color: Colors.deepPurple),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: RichText(
+                              text: TextSpan(
+                                style: TextStyle(
+                                  color:
+                                      color.value == 0 ? Colors.black87 : color,
+                                  fontWeight: fontWeight,
+                                  fontSize: 15,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: '${field.name}: ',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                  TextSpan(
+                                    text: value?.toString() ?? '-',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Color _parseColor(String hex) {
+    try {
+      final buffer = StringBuffer();
+      if (hex.length == 6 || hex.length == 7) buffer.write('ff');
+      buffer.write(hex.replaceFirst('#', ''));
+      return Color(int.parse(buffer.toString(), radix: 16));
+    } catch (_) {
+      return Colors.black87;
+    }
   }
 }
