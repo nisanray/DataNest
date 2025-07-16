@@ -40,10 +40,11 @@ dependencies:
   google_fonts: 
   path_provider: 
   # file_picker: 
-  image_picker: 
+  image_picker: ^1.1.2 
   intl: 
   uuid:
   flutter_colorpicker:
+  file_picker: ^10.2.0
   # Add any other UI or utility packages as needed
 
 dev_dependencies:

@@ -7,6 +7,8 @@ import '../controllers/field_controller.dart';
 import '../models/field_model.dart';
 import 'dart:convert';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 
 class RecordsTab extends StatelessWidget {
   final Section section;
@@ -510,12 +512,18 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
           ),
         );
       case 'file':
+        return _FileField(
+          label: field.name,
+          initialValue: formData[field.name],
+          onChanged: (val) => setState(() => formData[field.name] = val),
+          isImage: false,
+        );
       case 'image':
         return _FileField(
           label: field.name,
           initialValue: formData[field.name],
           onChanged: (val) => setState(() => formData[field.name] = val),
-          isImage: field.type == 'image',
+          isImage: true,
         );
       case 'relation':
         // For now, simulate relation by letting user pick a record from the target section
@@ -748,11 +756,12 @@ class _FileField extends StatelessWidget {
   final String? initialValue;
   final ValueChanged<String> onChanged;
   final bool isImage;
-  const _FileField(
-      {required this.label,
-      this.initialValue,
-      required this.onChanged,
-      this.isImage = false});
+  const _FileField({
+    required this.label,
+    this.initialValue,
+    required this.onChanged,
+    this.isImage = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -764,10 +773,27 @@ class _FileField extends StatelessWidget {
           const SizedBox(width: 8),
           ElevatedButton(
             onPressed: () async {
-              // You can use file_picker or image_picker here
-              // For now, just simulate file selection
-              final fileName = isImage ? 'image.png' : 'file.pdf';
-              onChanged(fileName);
+              String? fileName;
+              if (isImage) {
+                // Use image_picker
+                try {
+                  final picked = await ImagePicker()
+                      .pickImage(source: ImageSource.gallery);
+                  if (picked != null) fileName = picked.name;
+                } catch (_) {
+                  fileName = 'image.png'; // fallback
+                }
+              } else {
+                // Use file_picker
+                try {
+                  final result = await FilePicker.platform.pickFiles();
+                  if (result != null && result.files.isNotEmpty)
+                    fileName = result.files.first.name;
+                } catch (_) {
+                  fileName = 'file.pdf'; // fallback
+                }
+              }
+              if (fileName != null) onChanged(fileName);
             },
             child: Text('Pick ${isImage ? 'Image' : 'File'}'),
           ),
