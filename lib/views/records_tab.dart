@@ -551,6 +551,35 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
             onChanged: (val) => setState(() => formData[field.name] = val),
           ),
         );
+      case 'computed':
+        // Evaluate the formula using formData (simple expressions only)
+        String computedValue = '';
+        if (field.formula != null && field.formula!.isNotEmpty) {
+          try {
+            // Very basic: replace {fieldName} with value from formData
+            computedValue = field.formula!;
+            final regex = RegExp(r'\{([^}]+)\}');
+            computedValue = computedValue.replaceAllMapped(regex, (match) {
+              final key = match.group(1)!;
+              return formData[key]?.toString() ?? '';
+            });
+            // Optionally, try to evaluate simple math
+            if (RegExp(r'^[0-9+\-*/. ]+ 0$').hasMatch(computedValue)) {
+              computedValue = _tryEval(computedValue).toString();
+            }
+          } catch (_) {}
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: TextFormField(
+            initialValue: computedValue,
+            decoration: InputDecoration(
+              labelText: field.name + ' (Computed)',
+              suffixIcon: const Icon(Icons.calculate),
+            ),
+            readOnly: true,
+          ),
+        );
       // Advanced/unsupported types
       case 'computed':
       case 'relation':
@@ -568,6 +597,27 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
           padding: const EdgeInsets.only(bottom: 12),
           child: Text('Unsupported field type: ${field.type}'),
         );
+    }
+  }
+
+  num _tryEval(String expr) {
+    // Very basic math evaluator (supports +, -, *, /)
+    try {
+      expr = expr.replaceAll(' ', '');
+      if (expr.contains('+')) {
+        return expr.split('+').map(_tryEval).reduce((a, b) => a + b);
+      } else if (expr.contains('-')) {
+        final parts = expr.split('-');
+        return parts.map(_tryEval).reduce((a, b) => a - b);
+      } else if (expr.contains('*')) {
+        return expr.split('*').map(_tryEval).reduce((a, b) => a * b);
+      } else if (expr.contains('/')) {
+        return expr.split('/').map(_tryEval).reduce((a, b) => a / b);
+      } else {
+        return num.parse(expr);
+      }
+    } catch (_) {
+      return 0;
     }
   }
 
