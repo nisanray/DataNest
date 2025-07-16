@@ -655,24 +655,13 @@ class _RecordListPreview extends StatelessWidget {
                               size: 18, color: Colors.deepPurple),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: RichText(
-                              text: TextSpan(
-                                style: TextStyle(
-                                  color:
-                                      color.value == 0 ? Colors.black87 : color,
-                                  fontWeight: fontWeight,
-                                  fontSize: 15,
-                                ),
-                                children: [
-                                  TextSpan(
-                                    text: '${field.name}: ',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600),
-                                  ),
-                                  TextSpan(
-                                    text: value?.toString() ?? '-',
-                                  ),
-                                ],
+                            child: Text(
+                              '${field.name}: ${value?.toString() ?? '-'}',
+                              style: TextStyle(
+                                color:
+                                    color.value == 0 ? Colors.black87 : color,
+                                fontWeight: fontWeight,
+                                fontSize: 15,
                               ),
                             ),
                           ),
