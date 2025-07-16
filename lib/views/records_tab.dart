@@ -89,40 +89,16 @@ class RecordsTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          // Add record number
-                          Container(
-                            margin: const EdgeInsets.only(right: 12),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.blueGrey.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '#${index + 1}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blueGrey,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              titleValue ?? 'Record',
-                              style: const TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _confirmDeleteRecord(
-                                context, recordController, record),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
+                      // Title at the top
+                      if (titleValue != null && titleValue.isNotEmpty) ...[
+                        Text(
+                          titleValue,
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const Divider(height: 20, thickness: 1),
+                      ],
+                      // Fields below
                       ...fieldOrder
                           .where((fieldName) =>
                               visibleFields.contains(fieldName) &&
@@ -141,29 +117,36 @@ class RecordsTab extends StatelessWidget {
                         if (align == 'Right') textAlign = TextAlign.right;
                         FontWeight fontWeight = FontWeight.normal;
                         if (display == 'Bold') fontWeight = FontWeight.bold;
+                        // Skip the title field in the details
+                        if (fieldName == fieldOrder.first &&
+                            titleValue != null &&
+                            titleValue.isNotEmpty) {
+                          return const SizedBox.shrink();
+                        }
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Row(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _fieldIcon(field.type),
-                              const SizedBox(width: 8),
                               Text(
-                                '${field.name}: ',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  _formatFieldValue(field, value),
-                                  textAlign: textAlign,
-                                  style: TextStyle(
-                                    color: color.value == 0
-                                        ? Colors.black87
-                                        : color,
-                                    fontWeight: fontWeight,
-                                  ),
+                                field.name,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      color.value == 0 ? Colors.black87 : color,
+                                  fontSize: 15,
                                 ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _formatFieldValue(field, value),
+                                style: TextStyle(
+                                  color:
+                                      color.value == 0 ? Colors.black87 : color,
+                                  fontWeight: fontWeight,
+                                  fontSize: 15,
+                                ),
+                                textAlign: textAlign,
                               ),
                             ],
                           ),
