@@ -4,7 +4,6 @@ import '../controllers/section_controller.dart';
 import '../models/section_model.dart';
 import 'package:uuid/uuid.dart';
 
-// List of available icons for sections
 final List<Map<String, dynamic>> sectionIcons = [
   {'label': 'Folder', 'icon': Icons.folder, 'value': 'folder'},
   {'label': 'Book', 'icon': Icons.book, 'value': 'book'},
@@ -27,10 +26,8 @@ final List<Map<String, dynamic>> sectionIcons = [
   {'label': 'Phone', 'icon': Icons.phone, 'value': 'phone'},
   {'label': 'Lock', 'icon': Icons.lock, 'value': 'lock'},
   {'label': 'Alarm', 'icon': Icons.alarm, 'value': 'alarm'},
-  // Add more as needed
 ];
 
-// List of available colors for sections
 final List<Map<String, dynamic>> sectionColors = [
   {'label': 'Blue', 'color': Colors.blue, 'hex': '#4285F4'},
   {'label': 'Green', 'color': Colors.green, 'hex': '#34A853'},
@@ -41,7 +38,6 @@ final List<Map<String, dynamic>> sectionColors = [
   {'label': 'Orange', 'color': Colors.orange, 'hex': '#FF6D00'},
   {'label': 'Pink', 'color': Colors.pink, 'hex': '#D81B60'},
   {'label': 'Gray', 'color': Colors.grey, 'hex': '#9E9E9E'},
-  // Add more as needed
 ];
 
 class SectionCreateView extends StatefulWidget {
@@ -61,100 +57,179 @@ class _SectionCreateViewState extends State<SectionCreateView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Create Section')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Section Name'),
-            ),
-            const SizedBox(height: 12),
-            // Icon dropdown with preview
-            DropdownButtonFormField<String>(
-              value: selectedIcon,
-              decoration: const InputDecoration(labelText: 'Icon'),
-              items: sectionIcons.map((iconData) {
-                return DropdownMenuItem<String>(
-                  value: iconData['value'],
-                  child: Container(
-                    width: 140, // Set the width for the dropdown menu item
-                    child: Row(
-                      children: [
-                        Icon(iconData['icon']),
-                        const SizedBox(width: 8),
-                        Text(iconData['label']),
-                      ],
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: 360,
+          minWidth: 220,
+          maxHeight: 380,
+        ),
+        child: Material(
+          color: Theme.of(context).dialogBackgroundColor,
+          borderRadius: BorderRadius.circular(16),
+          elevation: 16,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Create Section',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 18)),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.of(context).maybePop(),
                     ),
-                  ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedIcon = value;
-                });
-              },
-            ),
-            const SizedBox(height: 12),
-            // Color dropdown with preview
-            DropdownButtonFormField<String>(
-              value: selectedColor,
-              decoration: const InputDecoration(labelText: 'Color'),
-              items: sectionColors.map((colorData) {
-                return DropdownMenuItem<String>(
-                  value: colorData['hex'],
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: colorData['color'],
-                        radius: 10,
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Icon',
+                              style: TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 4),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            padding: const EdgeInsets.all(8),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: selectedIcon,
+                                items: sectionIcons.map((iconData) {
+                                  return DropdownMenuItem<String>(
+                                    value: iconData['value'],
+                                    child: Row(
+                                      children: [
+                                        Icon(iconData['icon'], size: 22),
+                                        const SizedBox(width: 4),
+                                        Text(iconData['label']),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (val) =>
+                                    setState(() => selectedIcon = val),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(colorData['label']),
-                    ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Color',
+                              style: TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 4),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            padding: const EdgeInsets.all(8),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: selectedColor,
+                                items: sectionColors.map((colorData) {
+                                  return DropdownMenuItem<String>(
+                                    value: colorData['hex'],
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          backgroundColor: colorData['color'],
+                                          radius: 9,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(colorData['label']),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (val) =>
+                                    setState(() => selectedColor = val),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Section Name',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.title),
                   ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedColor = value;
-                });
-              },
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.description),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.check),
+                    label: const Text('Create Section',
+                        style: TextStyle(fontSize: 15)),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: Colors.white,
+                      textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      elevation: 2,
+                    ),
+                    onPressed: () {
+                      if (nameController.text.trim().isEmpty) {
+                        Get.snackbar('Error', 'Section name is required',
+                            snackPosition: SnackPosition.BOTTOM);
+                        return;
+                      }
+                      final section = Section(
+                        id: const Uuid().v4(),
+                        name: nameController.text.trim(),
+                        icon: selectedIcon,
+                        color: selectedColor,
+                        description: descriptionController.text.trim().isEmpty
+                            ? null
+                            : descriptionController.text.trim(),
+                      );
+                      sectionController.addSection(section);
+                      Get.back();
+                      Get.snackbar('Success', 'Section created',
+                          snackPosition: SnackPosition.BOTTOM);
+                    },
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: descriptionController,
-              decoration: const InputDecoration(labelText: 'Description'),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  if (nameController.text.trim().isEmpty) {
-                    Get.snackbar('Error', 'Section name is required');
-                    return;
-                  }
-                  final section = Section(
-                    id: const Uuid().v4(),
-                    name: nameController.text.trim(),
-                    icon: selectedIcon,
-                    color: selectedColor,
-                    description: descriptionController.text.trim().isEmpty
-                        ? null
-                        : descriptionController.text.trim(),
-                  );
-                  sectionController.addSection(section);
-                  Get.back();
-                  Get.snackbar('Success', 'Section created');
-                },
-                child: const Text('Create Section'),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -18,6 +18,8 @@ class Section extends HiveObject {
   int? order;
   @HiveField(6)
   bool synced;
+  @HiveField(7)
+  Map<String, dynamic>? settings;
 
   Section({
     required this.id,
@@ -27,5 +29,6 @@ class Section extends HiveObject {
     this.description,
     this.order,
     this.synced = false,
+    this.settings,
   });
 }

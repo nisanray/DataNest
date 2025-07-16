@@ -18,11 +18,42 @@ class RecordsTab extends StatelessWidget {
         Get.put(RecordController(sectionId: section.id), tag: section.id);
     final FieldController fieldController =
         Get.put(FieldController(sectionId: section.id), tag: section.id);
+    // Extract section settings
+    final settings = section.settings ?? {};
+    final List<String> fieldOrder = List<String>.from(
+        settings['fieldOrder'] ?? fieldController.fields.map((f) => f.name));
+    final List<String> visibleFields = List<String>.from(
+        settings['visibleFields'] ?? fieldController.fields.map((f) => f.name));
+    final Map<String, dynamic> fieldDisplay =
+        Map<String, dynamic>.from(settings['fieldDisplay'] ?? {});
+    final Map<String, dynamic> fieldAlignment =
+        Map<String, dynamic>.from(settings['fieldAlignment'] ?? {});
+    final Map<String, dynamic> fieldColor =
+        Map<String, dynamic>.from(settings['fieldColor'] ?? {});
+    final String? sortBy = settings['sortBy'];
+    final String sortOrder = settings['sortOrder'] ?? 'asc';
+
     return Stack(
       children: [
         Obx(() {
-          final records = recordController.records;
+          var records = List<Record>.from(recordController.records);
           final fields = fieldController.fields;
+          // Sort records if sortBy is set
+          if (sortBy != null && fields.any((f) => f.name == sortBy)) {
+            records.sort((a, b) {
+              final aValue = a.data[sortBy];
+              final bValue = b.data[sortBy];
+              if (aValue == null && bValue == null) return 0;
+              if (aValue == null) return sortOrder == 'asc' ? -1 : 1;
+              if (bValue == null) return sortOrder == 'asc' ? 1 : -1;
+              if (aValue is Comparable && bValue is Comparable) {
+                return sortOrder == 'asc'
+                    ? aValue.compareTo(bValue)
+                    : bValue.compareTo(aValue);
+              }
+              return 0;
+            });
+          }
           if (records.isEmpty) {
             return const Center(
                 child: Text('No records yet. Tap + to add one.'));
@@ -33,11 +64,18 @@ class RecordsTab extends StatelessWidget {
             separatorBuilder: (_, __) => const SizedBox(height: 16),
             itemBuilder: (context, index) {
               final record = records[index];
-              // Get the first field value for the title
+              // Use the first visible field as the title
               String? titleValue;
-              if (fields.isNotEmpty) {
-                final firstField = fields.first;
-                titleValue = record.data[firstField.name]?.toString();
+              if (fieldOrder.isNotEmpty) {
+                final firstVisible = fieldOrder.firstWhere(
+                  (f) =>
+                      visibleFields.contains(f) &&
+                      (fieldDisplay[f] ?? 'Normal') != 'Hidden',
+                  orElse: () => '',
+                );
+                if (firstVisible.isNotEmpty) {
+                  titleValue = record.data[firstVisible]?.toString();
+                }
               }
               return Card(
                 elevation: 3,
@@ -51,6 +89,23 @@ class RecordsTab extends StatelessWidget {
                     children: [
                       Row(
                         children: [
+                          // Add record number
+                          Container(
+                            margin: const EdgeInsets.only(right: 12),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.blueGrey.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '#${index + 1}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blueGrey,
+                              ),
+                            ),
+                          ),
                           Expanded(
                             child: Text(
                               titleValue ?? 'Record',
@@ -66,8 +121,24 @@ class RecordsTab extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      ...fields.map((field) {
+                      ...fieldOrder
+                          .where((fieldName) =>
+                              visibleFields.contains(fieldName) &&
+                              (fieldDisplay[fieldName] ?? 'Normal') != 'Hidden')
+                          .map((fieldName) {
+                        final field =
+                            fields.firstWhereOrNull((f) => f.name == fieldName);
+                        if (field == null) return const SizedBox.shrink();
                         final value = record.data[field.name];
+                        final display = fieldDisplay[field.name] ?? 'Normal';
+                        final align = fieldAlignment[field.name] ?? 'Left';
+                        final colorHex = fieldColor[field.name] ?? '#00000000';
+                        final color = _parseColor(colorHex);
+                        TextAlign textAlign = TextAlign.left;
+                        if (align == 'Center') textAlign = TextAlign.center;
+                        if (align == 'Right') textAlign = TextAlign.right;
+                        FontWeight fontWeight = FontWeight.normal;
+                        if (display == 'Bold') fontWeight = FontWeight.bold;
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 4),
                           child: Row(
@@ -83,7 +154,13 @@ class RecordsTab extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   _formatFieldValue(field, value),
-                                  style: const TextStyle(color: Colors.black87),
+                                  textAlign: textAlign,
+                                  style: TextStyle(
+                                    color: color.value == 0
+                                        ? Colors.black87
+                                        : color,
+                                    fontWeight: fontWeight,
+                                  ),
                                 ),
                               ),
                             ],
@@ -181,6 +258,17 @@ class RecordsTab extends StatelessWidget {
         return value.toString().replaceFirst('T', ' ').split('.').first;
       default:
         return value.toString();
+    }
+  }
+
+  Color _parseColor(String hex) {
+    try {
+      final buffer = StringBuffer();
+      if (hex.length == 6 || hex.length == 7) buffer.write('ff');
+      buffer.write(hex.replaceFirst('#', ''));
+      return Color(int.parse(buffer.toString(), radix: 16));
+    } catch (_) {
+      return Colors.black87;
     }
   }
 }
