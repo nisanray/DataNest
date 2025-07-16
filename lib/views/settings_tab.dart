@@ -648,24 +648,23 @@ class _RecordListPreview extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.label,
-                              size: 18, color: Colors.deepPurple),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              '${field.name}: ${value?.toString() ?? '-'}',
-                              style: TextStyle(
-                                color:
-                                    color.value == 0 ? Colors.black87 : color,
-                                fontWeight: fontWeight,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ),
-                        ],
+                      Text(
+                        field.name,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: color.value == 0 ? Colors.black87 : color,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        value?.toString() ?? '-',
+                        style: TextStyle(
+                          color: color.value == 0 ? Colors.black87 : color,
+                          fontWeight: fontWeight,
+                          fontSize: 15,
+                        ),
+                        textAlign: textAlign,
                       ),
                     ],
                   ),
