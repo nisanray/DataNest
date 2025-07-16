@@ -142,28 +142,41 @@ class RecordsTab extends StatelessWidget {
                         FontWeight fontWeight = FontWeight.normal;
                         if (display == 'Bold') fontWeight = FontWeight.bold;
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Row(
+                          padding: const EdgeInsets.only(
+                              bottom: 12), // more space between fields
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _fieldIcon(field.type),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${field.name}: ',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  _formatFieldValue(field, value),
-                                  textAlign: textAlign,
-                                  style: TextStyle(
-                                    color: color.value == 0
-                                        ? Colors.black87
-                                        : color,
-                                    fontWeight: fontWeight,
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _fieldIcon(field.type),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: RichText(
+                                      text: TextSpan(
+                                        style: TextStyle(
+                                          color: color.value == 0
+                                              ? Colors.black87
+                                              : color,
+                                          fontWeight: fontWeight,
+                                          fontSize: 15,
+                                        ),
+                                        children: [
+                                          TextSpan(
+                                            text: '${field.name}: ',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600),
+                                          ),
+                                          TextSpan(
+                                            text:
+                                                _formatFieldValue(field, value),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
                             ],
                           ),

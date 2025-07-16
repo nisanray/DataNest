@@ -42,7 +42,8 @@ class FieldsTab extends StatelessWidget {
                       ),
                     ],
                   ),
-                  // TODO: Add onTap for field edit
+                  onTap: () => _showAddFieldDialog(context, fieldController,
+                      editField: field),
                 ),
               );
             },
@@ -305,7 +306,11 @@ class FieldsTab extends StatelessWidget {
                   Get.snackbar('Success', 'Field added',
                       snackPosition: SnackPosition.BOTTOM);
                 } else {
-                  // TODO: Implement edit logic
+                  // Edit logic: update Hive and observable list
+                  controller.fieldBox.put(field.id, field);
+                  final idx =
+                      controller.fields.indexWhere((f) => f.id == field.id);
+                  if (idx != -1) controller.fields[idx] = field;
                   Get.snackbar('Success', 'Field updated',
                       snackPosition: SnackPosition.BOTTOM);
                 }
