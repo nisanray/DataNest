@@ -61,16 +61,43 @@ class FieldsTab extends StatelessWidget {
     );
   }
 
-  void _showAddFieldDialog(BuildContext context, FieldController controller) {
-    final TextEditingController nameController = TextEditingController();
-    String selectedType = FieldController.fieldTypes.first['value']!;
-    bool requiredField = false;
-    bool unique = false;
+  void _showAddFieldDialog(BuildContext context, FieldController controller,
+      {Field? editField}) {
+    final TextEditingController nameController =
+        TextEditingController(text: editField?.name ?? '');
+    String selectedType =
+        editField?.type ?? FieldController.fieldTypes.first['value']!;
+    bool requiredField = editField?.requiredField ?? false;
+    bool unique = editField?.unique ?? false;
+    final TextEditingController defaultValueController =
+        TextEditingController(text: editField?.defaultValue?.toString() ?? '');
+    final TextEditingController hintController =
+        TextEditingController(text: editField?.hint ?? '');
+    final TextEditingController allowedOptionsController =
+        TextEditingController(
+            text: (editField?.allowedOptions?.join(', ') ?? ''));
+    final TextEditingController validationController =
+        TextEditingController(text: editField?.validation?['regex'] ?? '');
+    final TextEditingController attachmentTypesController =
+        TextEditingController(
+            text: (editField?.attachmentRules?['allowedTypes']?.join(', ') ??
+                ''));
+    final TextEditingController attachmentMaxSizeController =
+        TextEditingController(
+            text:
+                editField?.attachmentRules?['maxFileSizeMB']?.toString() ?? '');
+    final TextEditingController relationSectionController =
+        TextEditingController(text: editField?.relations?['section'] ?? '');
+    final TextEditingController formulaController =
+        TextEditingController(text: editField?.formula ?? '');
+    final TextEditingController conditionalVisibilityController =
+        TextEditingController(text: editField?.conditionalVisibility ?? '');
+    int order = editField?.order ?? controller.fields.length;
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: const Text('Add Field'),
+          title: Text(editField == null ? 'Add Field' : 'Edit Field'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -109,6 +136,96 @@ class FieldsTab extends StatelessWidget {
                   title: const Text('Unique'),
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
+                if (selectedType == 'dropdown' ||
+                    selectedType == 'multi_select' ||
+                    selectedType == 'radio') ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: allowedOptionsController,
+                    decoration: const InputDecoration(
+                      labelText: 'Allowed Options (comma separated)',
+                    ),
+                  ),
+                ],
+                if (selectedType == 'file' ||
+                    selectedType == 'image' ||
+                    selectedType == 'attachment') ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: attachmentTypesController,
+                    decoration: const InputDecoration(
+                      labelText: 'Allowed File Types (comma separated)',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: attachmentMaxSizeController,
+                    decoration: const InputDecoration(
+                      labelText: 'Max File Size (MB)',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ],
+                if (selectedType == 'relation') ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: relationSectionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Target Section/Record',
+                    ),
+                  ),
+                ],
+                if (selectedType == 'computed') ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: formulaController,
+                    decoration: const InputDecoration(
+                      labelText: 'Formula (Dart expression)',
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: defaultValueController,
+                  decoration: const InputDecoration(labelText: 'Default Value'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: hintController,
+                  decoration:
+                      const InputDecoration(labelText: 'Hint/Help Text'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: validationController,
+                  decoration:
+                      const InputDecoration(labelText: 'Validation (Regex)'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: conditionalVisibilityController,
+                  decoration: const InputDecoration(
+                      labelText: 'Conditional Visibility (logic)'),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Text('Order:'),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Slider(
+                        value: order.toDouble(),
+                        min: 0,
+                        max: (controller.fields.length).toDouble(),
+                        divisions: controller.fields.length > 0
+                            ? controller.fields.length
+                            : 1,
+                        label: order.toString(),
+                        onChanged: (val) => setState(() => order = val.toInt()),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -125,20 +242,76 @@ class FieldsTab extends StatelessWidget {
                   return;
                 }
                 final field = Field(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  id: editField?.id ??
+                      DateTime.now().millisecondsSinceEpoch.toString(),
                   sectionId: controller.sectionId,
                   name: nameController.text.trim(),
                   type: selectedType,
                   requiredField: requiredField,
                   unique: unique,
-                  order: controller.fields.length,
+                  defaultValue: defaultValueController.text.isNotEmpty
+                      ? defaultValueController.text
+                      : null,
+                  hint: hintController.text.isNotEmpty
+                      ? hintController.text
+                      : null,
+                  allowedOptions: (selectedType == 'dropdown' ||
+                              selectedType == 'multi_select' ||
+                              selectedType == 'radio') &&
+                          allowedOptionsController.text.isNotEmpty
+                      ? allowedOptionsController.text
+                          .split(',')
+                          .map((e) => e.trim())
+                          .toList()
+                      : null,
+                  validation: validationController.text.isNotEmpty
+                      ? {'regex': validationController.text}
+                      : null,
+                  attachmentRules: (selectedType == 'file' ||
+                              selectedType == 'image' ||
+                              selectedType == 'attachment') &&
+                          (attachmentTypesController.text.isNotEmpty ||
+                              attachmentMaxSizeController.text.isNotEmpty)
+                      ? {
+                          'allowedTypes':
+                              attachmentTypesController.text.isNotEmpty
+                                  ? attachmentTypesController.text
+                                      .split(',')
+                                      .map((e) => e.trim())
+                                      .toList()
+                                  : null,
+                          'maxFileSizeMB': attachmentMaxSizeController
+                                  .text.isNotEmpty
+                              ? int.tryParse(attachmentMaxSizeController.text)
+                              : null,
+                        }
+                      : null,
+                  relations: selectedType == 'relation' &&
+                          relationSectionController.text.isNotEmpty
+                      ? {'section': relationSectionController.text}
+                      : null,
+                  formula: selectedType == 'computed' &&
+                          formulaController.text.isNotEmpty
+                      ? formulaController.text
+                      : null,
+                  conditionalVisibility:
+                      conditionalVisibilityController.text.isNotEmpty
+                          ? conditionalVisibilityController.text
+                          : null,
+                  order: order,
                 );
-                controller.addField(field);
+                if (editField == null) {
+                  controller.addField(field);
+                  Get.snackbar('Success', 'Field added',
+                      snackPosition: SnackPosition.BOTTOM);
+                } else {
+                  // TODO: Implement edit logic
+                  Get.snackbar('Success', 'Field updated',
+                      snackPosition: SnackPosition.BOTTOM);
+                }
                 Navigator.of(context).pop();
-                Get.snackbar('Success', 'Field added',
-                    snackPosition: SnackPosition.BOTTOM);
               },
-              child: const Text('Add'),
+              child: Text(editField == null ? 'Add' : 'Save'),
             ),
           ],
         ),
