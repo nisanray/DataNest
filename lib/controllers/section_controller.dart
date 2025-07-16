@@ -20,6 +20,7 @@ class SectionController extends GetxController {
   void addSection(Section section) async {
     await sectionBox.put(section.id, section);
     sections.add(section);
+    update();
   }
 
   void editSection(String id, Section updated) async {
@@ -31,6 +32,12 @@ class SectionController extends GetxController {
   void deleteSection(String id) async {
     await sectionBox.delete(id);
     sections.removeWhere((s) => s.id == id);
+  }
+
+  void refreshSections() async {
+    final box = await Hive.openBox<Section>('sections');
+    sections.value = box.values.toList();
+    update();
   }
 
   // Placeholder for sync logic

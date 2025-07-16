@@ -5,6 +5,7 @@ import '../models/section_model.dart';
 import 'section_detail_view.dart';
 import 'section_create_view.dart';
 import 'section_create_view.dart' show sectionIcons;
+import 'sections_list_view.dart';
 
 class HomeView extends StatelessWidget {
   HomeView({Key? key}) : super(key: key);
@@ -33,60 +34,60 @@ class HomeView extends StatelessWidget {
           return ListView(
             padding: EdgeInsets.zero,
             children: [
-              DrawerHeader(
-                decoration: BoxDecoration(
-                  color: Colors.deepPurple,
+              UserAccountsDrawerHeader(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.deepPurple, Colors.purpleAccent],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('DataNest',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold)),
-                    SizedBox(height: 8),
-                    Text('No-code Data Platform',
-                        style: TextStyle(color: Colors.white70, fontSize: 14)),
-                  ],
+                accountName: const Text('Welcome!',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                accountEmail: const Text('Your DataNest Workspace'),
+                currentAccountPicture: CircleAvatar(
+                  backgroundColor: Colors.white,
+                  child: Icon(Icons.person, color: Colors.deepPurple, size: 36),
                 ),
+                otherAccountsPictures: [
+                  IconButton(
+                    icon: const Icon(Icons.settings, color: Colors.white),
+                    tooltip: 'Settings',
+                    onPressed: () {
+                      Navigator.pop(context);
+                      // Add settings navigation if needed
+                    },
+                  ),
+                ],
               ),
               ListTile(
                 leading: const Icon(Icons.dashboard),
                 title: const Text('Dashboard'),
                 onTap: () => Navigator.pop(context),
               ),
-              if (sections.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Text('Sections',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: Colors.deepPurple)),
+              ListTile(
+                leading: const Icon(Icons.folder_special),
+                title: const Text('Sections'),
+                trailing: CircleAvatar(
+                  radius: 12,
+                  backgroundColor: Colors.deepPurple.shade100,
+                  child: Text('${sections.length}',
+                      style: const TextStyle(
+                          fontSize: 12, color: Colors.deepPurple)),
                 ),
-                ...sections.map((section) => ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: section.color != null
-                            ? _parseColor(section.color!)
-                            : Colors.deepPurple,
-                        child: Icon(_getSectionIcon(section.icon),
-                            color: Colors.white, size: 20),
-                      ),
-                      title: Text(section.name),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Get.to(() => SectionDetailView(section: section));
-                      },
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete,
-                            color: Colors.red, size: 20),
-                        tooltip: 'Delete Section',
-                        onPressed: () =>
-                            _confirmDeleteSection(context, section),
-                      ),
-                    )),
-              ],
+                onTap: () {
+                  Navigator.pop(context);
+                  Get.to(() => SectionsListView());
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.add),
+                title: const Text('New Section'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showCreateSectionModal(context);
+                },
+              ),
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.settings),
@@ -99,6 +100,35 @@ class HomeView extends StatelessWidget {
                 onTap: () {
                   Navigator.pop(context);
                   _showAboutDialog(context);
+                },
+              ),
+              const Divider(),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text('Quick Actions',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.deepPurple.shade400)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.refresh),
+                title: const Text('Refresh Sections'),
+                onTap: () {
+                  sectionController.refreshSections();
+                  Navigator.pop(context);
+                  Get.snackbar('Refreshed', 'Sections refreshed',
+                      snackPosition: SnackPosition.BOTTOM);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout),
+                title: const Text('Logout'),
+                onTap: () {
+                  // Add logout logic if needed
+                  Navigator.pop(context);
+                  Get.snackbar('Logout', 'Logout action (not implemented)',
+                      snackPosition: SnackPosition.BOTTOM);
                 },
               ),
             ],
@@ -177,7 +207,6 @@ class HomeView extends StatelessWidget {
 
   Widget _buildDashboard(BuildContext context) {
     final sections = sectionController.sections;
-    // Placeholder for total records, you can replace with actual logic
     final int totalRecords = 0;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -197,13 +226,7 @@ class HomeView extends StatelessWidget {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
                   onTap: () {
-                    if (sections.isNotEmpty) {
-                      Get.to(() => SectionDetailView(section: sections.first));
-                    } else {
-                      Get.snackbar(
-                          'No Sections', 'Create a section to get started!',
-                          snackPosition: SnackPosition.BOTTOM);
-                    }
+                    Get.to(() => SectionsListView());
                   },
                   child: Card(
                     elevation: 2,
@@ -261,7 +284,6 @@ class HomeView extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 32),
-          // You can add more dashboard widgets here
         ],
       ),
     );
