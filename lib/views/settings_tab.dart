@@ -611,69 +611,49 @@ class _RecordListPreview extends StatelessWidget {
     final fieldController = Get.find<FieldController>(tag: sectionId);
     final fields = fieldController.fields;
     final records = recordController.records.take(3).toList();
+    final visibleFieldNames = fieldOrder
+        .where((fieldName) =>
+            visibleFields.contains(fieldName) &&
+            (fieldDisplay[fieldName] ?? 'Normal') != 'Hidden')
+        .toList();
     if (records.isEmpty) {
       return const Text('No records yet. Add some records to see a preview.');
     }
-    return Column(
-      children: records.map((record) {
-        return Card(
-          elevation: 2,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: fieldOrder
-                  .where((fieldName) =>
-                      visibleFields.contains(fieldName) &&
-                      (fieldDisplay[fieldName] ?? 'Normal') != 'Hidden')
-                  .map((fieldName) {
-                final field =
-                    fields.firstWhereOrNull((f) => f.name == fieldName);
-                if (field == null) return const SizedBox.shrink();
-                final value = record.data[field.name];
-                final display = fieldDisplay[field.name] ?? 'Normal';
-                final align = fieldAlignment[field.name] ?? 'Left';
-                final colorHex = fieldColor[field.name] ?? '#00000000';
-                final color = _parseColor(colorHex);
-                TextAlign textAlign = TextAlign.left;
-                if (align == 'Center') textAlign = TextAlign.center;
-                if (align == 'Right') textAlign = TextAlign.right;
-                FontWeight fontWeight = FontWeight.normal;
-                if (display == 'Bold') fontWeight = FontWeight.bold;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        field.name,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: color.value == 0 ? Colors.black87 : color,
-                          fontSize: 15,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        value?.toString() ?? '-',
-                        style: TextStyle(
-                          color: color.value == 0 ? Colors.black87 : color,
-                          fontWeight: fontWeight,
-                          fontSize: 15,
-                        ),
-                        textAlign: textAlign,
-                      ),
-                    ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: DataTable(
+        columns: visibleFieldNames
+            .map((fieldName) => DataColumn(
+                  label: Text(
+                    fieldName,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                );
-              }).toList(),
-            ),
-          ),
-        );
-      }).toList(),
+                ))
+            .toList(),
+        rows: records.map((record) {
+          return DataRow(
+            cells: visibleFieldNames.map((fieldName) {
+              final field = fields.firstWhereOrNull((f) => f.name == fieldName);
+              final value = field != null ? record.data[field.name] : null;
+              final display = fieldDisplay[fieldName] ?? 'Normal';
+              final colorHex = fieldColor[fieldName] ?? '#00000000';
+              final color = _parseColor(colorHex);
+              FontWeight fontWeight = FontWeight.normal;
+              if (display == 'Bold') fontWeight = FontWeight.bold;
+              return DataCell(
+                Text(
+                  value?.toString() ?? '-',
+                  style: TextStyle(
+                    color: color.value == 0 ? Colors.black87 : color,
+                    fontWeight: fontWeight,
+                    fontSize: 15,
+                  ),
+                ),
+              );
+            }).toList(),
+          );
+        }).toList(),
+      ),
     );
   }
 
