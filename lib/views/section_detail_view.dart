@@ -11,7 +11,10 @@ import 'settings_tab.dart';
 
 class SectionDetailView extends StatelessWidget {
   final Section section;
-  const SectionDetailView({Key? key, required this.section}) : super(key: key);
+  final String userId;
+  const SectionDetailView(
+      {Key? key, required this.section, required this.userId})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -53,11 +56,11 @@ class SectionDetailView extends StatelessWidget {
         body: TabBarView(
           children: [
             // Records Tab
-            RecordsTab(section: section),
+            RecordsTab(section: section, userId: userId),
             // Fields Tab
-            FieldsTab(section: section),
+            FieldsTab(section: section, userId: userId),
             // Settings Tab
-            SettingsTab(section: section),
+            SettingsTab(section: section, userId: userId),
           ],
         ),
       ),

@@ -6,12 +6,15 @@ import '../controllers/field_controller.dart';
 
 class FieldsTab extends StatelessWidget {
   final Section section;
-  const FieldsTab({Key? key, required this.section}) : super(key: key);
+  final String userId;
+  const FieldsTab({Key? key, required this.section, required this.userId})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final FieldController fieldController =
-        Get.put(FieldController(sectionId: section.id), tag: section.id);
+    final FieldController fieldController = Get.put(
+        FieldController(sectionId: section.id, userId: userId),
+        tag: section.id);
     return Stack(
       children: [
         Obx(() {

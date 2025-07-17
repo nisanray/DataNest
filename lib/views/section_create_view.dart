@@ -41,14 +41,16 @@ final List<Map<String, dynamic>> sectionColors = [
 ];
 
 class SectionCreateView extends StatefulWidget {
-  SectionCreateView({Key? key}) : super(key: key);
+  final String userId;
+  SectionCreateView(this.userId, {Key? key}) : super(key: key);
 
   @override
   State<SectionCreateView> createState() => _SectionCreateViewState();
 }
 
 class _SectionCreateViewState extends State<SectionCreateView> {
-  final SectionController sectionController = Get.find();
+  late final SectionController sectionController =
+      Get.find<SectionController>(tag: widget.userId);
   final TextEditingController nameController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
 

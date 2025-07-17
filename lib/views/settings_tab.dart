@@ -10,7 +10,9 @@ import 'package:collection/collection.dart';
 
 class SettingsTab extends StatefulWidget {
   final Section section;
-  const SettingsTab({Key? key, required this.section}) : super(key: key);
+  final String userId;
+  const SettingsTab({Key? key, required this.section, required this.userId})
+      : super(key: key);
 
   @override
   State<SettingsTab> createState() => _SettingsTabState();
@@ -34,8 +36,15 @@ class _SettingsTabState extends State<SettingsTab> {
   @override
   void initState() {
     super.initState();
-    fieldController = Get.find<FieldController>(tag: widget.section.id);
-    sectionController = SectionController();
+    // Ensure FieldController is registered with the correct tag
+    final tag = '${widget.section.id}_${widget.userId}';
+    if (!Get.isRegistered<FieldController>(tag: tag)) {
+      Get.put(
+          FieldController(sectionId: widget.section.id, userId: widget.userId),
+          tag: tag);
+    }
+    fieldController = Get.find<FieldController>(tag: tag);
+    sectionController = SectionController(userId: widget.userId);
     name = widget.section.name;
     icon = widget.section.icon;
     color = widget.section.color;
@@ -342,164 +351,175 @@ class _SettingsTabState extends State<SettingsTab> {
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 8, horizontal: 12),
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.drag_handle,
-                                            color: Colors.grey[400]),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                            child: Text(fieldName,
-                                                style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.w500))),
-                                        const SizedBox(width: 8),
-                                        DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey[100],
-                                            borderRadius:
-                                                BorderRadius.circular(8),
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.drag_handle,
+                                              color: Colors.grey[400]),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            fieldName,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 15),
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          child: DropdownButtonHideUnderline(
-                                            child: DropdownButton<String>(
-                                              value: fieldDisplay[fieldName] ??
-                                                  'Normal',
-                                              items: const [
-                                                DropdownMenuItem(
-                                                    value: 'Bold',
-                                                    child: Text('Bold')),
-                                                DropdownMenuItem(
-                                                    value: 'Normal',
-                                                    child: Text('Normal')),
-                                                DropdownMenuItem(
-                                                    value: 'Hidden',
-                                                    child: Text('Hidden')),
-                                              ],
-                                              onChanged: (val) {
-                                                setState(() {
-                                                  fieldDisplay[fieldName] =
-                                                      val ?? 'Normal';
-                                                  settings['fieldDisplay'] =
-                                                      fieldDisplay;
-                                                });
-                                              },
+                                          const SizedBox(width: 16),
+                                          DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[100],
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: DropdownButtonHideUnderline(
+                                              child: DropdownButton<String>(
+                                                value:
+                                                    fieldDisplay[fieldName] ??
+                                                        'Normal',
+                                                items: const [
+                                                  DropdownMenuItem(
+                                                      value: 'Bold',
+                                                      child: Text('Bold')),
+                                                  DropdownMenuItem(
+                                                      value: 'Normal',
+                                                      child: Text('Normal')),
+                                                  DropdownMenuItem(
+                                                      value: 'Hidden',
+                                                      child: Text('Hidden')),
+                                                ],
+                                                onChanged: (val) {
+                                                  setState(() {
+                                                    fieldDisplay[fieldName] =
+                                                        val ?? 'Normal';
+                                                    settings['fieldDisplay'] =
+                                                        fieldDisplay;
+                                                  });
+                                                },
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey[100],
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                          ),
-                                          child: DropdownButtonHideUnderline(
-                                            child: DropdownButton<String>(
-                                              value:
-                                                  fieldAlignment[fieldName] ??
-                                                      'Left',
-                                              items: const [
-                                                DropdownMenuItem(
-                                                    value: 'Left',
-                                                    child: Text('Left')),
-                                                DropdownMenuItem(
-                                                    value: 'Center',
-                                                    child: Text('Center')),
-                                                DropdownMenuItem(
-                                                    value: 'Right',
-                                                    child: Text('Right')),
-                                              ],
-                                              onChanged: (val) {
-                                                setState(() {
-                                                  fieldAlignment[fieldName] =
-                                                      val ?? 'Left';
-                                                  settings['fieldAlignment'] =
-                                                      fieldAlignment;
-                                                });
-                                              },
+                                          const SizedBox(width: 8),
+                                          DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[100],
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: DropdownButtonHideUnderline(
+                                              child: DropdownButton<String>(
+                                                value:
+                                                    fieldAlignment[fieldName] ??
+                                                        'Left',
+                                                items: const [
+                                                  DropdownMenuItem(
+                                                      value: 'Left',
+                                                      child: Text('Left')),
+                                                  DropdownMenuItem(
+                                                      value: 'Center',
+                                                      child: Text('Center')),
+                                                  DropdownMenuItem(
+                                                      value: 'Right',
+                                                      child: Text('Right')),
+                                                ],
+                                                onChanged: (val) {
+                                                  setState(() {
+                                                    fieldAlignment[fieldName] =
+                                                        val ?? 'Left';
+                                                    settings['fieldAlignment'] =
+                                                        fieldAlignment;
+                                                  });
+                                                },
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Tooltip(
-                                          message: 'Pick highlight color',
-                                          child: GestureDetector(
-                                            onTap: () async {
-                                              final picked =
-                                                  await showDialog<Color>(
-                                                context: context,
-                                                builder: (context) =>
-                                                    AlertDialog(
-                                                  title: const Text(
-                                                      'Pick highlight color'),
-                                                  content:
-                                                      SingleChildScrollView(
-                                                    child: BlockPicker(
-                                                      pickerColor: _parseColor(
-                                                          fieldColor[
-                                                                  fieldName] ??
-                                                              '#00000000'),
-                                                      onColorChanged: (c) =>
-                                                          Navigator.of(context)
-                                                              .pop(c),
+                                          const SizedBox(width: 8),
+                                          Tooltip(
+                                            message: 'Pick highlight color',
+                                            child: GestureDetector(
+                                              onTap: () async {
+                                                final picked =
+                                                    await showDialog<Color>(
+                                                  context: context,
+                                                  builder: (context) =>
+                                                      AlertDialog(
+                                                    title: const Text(
+                                                        'Pick highlight color'),
+                                                    content:
+                                                        SingleChildScrollView(
+                                                      child: BlockPicker(
+                                                        pickerColor: _parseColor(
+                                                            fieldColor[
+                                                                    fieldName] ??
+                                                                '#00000000'),
+                                                        onColorChanged: (c) =>
+                                                            Navigator.of(
+                                                                    context)
+                                                                .pop(c),
+                                                      ),
                                                     ),
                                                   ),
-                                                ),
-                                              );
-                                              if (picked != null) {
-                                                setState(() {
-                                                  fieldColor[fieldName] =
-                                                      '#${picked.value.toRadixString(16).padLeft(8, '0')}';
-                                                  settings['fieldColor'] =
-                                                      fieldColor;
-                                                });
-                                              }
-                                            },
-                                            child: CircleAvatar(
-                                              backgroundColor: _parseColor(
-                                                  fieldColor[fieldName] ??
-                                                      '#00000000'),
-                                              radius: 12,
-                                              child: (fieldColor[fieldName] ==
-                                                          null ||
-                                                      _parseColor(fieldColor[
-                                                                  fieldName])
-                                                              .value ==
-                                                          0)
-                                                  ? const Icon(Icons.color_lens,
-                                                      size: 16,
-                                                      color: Colors.grey)
-                                                  : null,
+                                                );
+                                                if (picked != null) {
+                                                  setState(() {
+                                                    fieldColor[fieldName] =
+                                                        '#${picked.value.toRadixString(16).padLeft(8, '0')}';
+                                                    settings['fieldColor'] =
+                                                        fieldColor;
+                                                  });
+                                                }
+                                              },
+                                              child: CircleAvatar(
+                                                backgroundColor: _parseColor(
+                                                    fieldColor[fieldName] ??
+                                                        '#00000000'),
+                                                radius: 12,
+                                                child: (fieldColor[fieldName] ==
+                                                            null ||
+                                                        _parseColor(fieldColor[
+                                                                    fieldName])
+                                                                .value ==
+                                                            0)
+                                                    ? const Icon(
+                                                        Icons.color_lens,
+                                                        size: 16,
+                                                        color: Colors.grey)
+                                                    : null,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Tooltip(
-                                          message:
-                                              'Show/hide field in record list',
-                                          child: Switch(
-                                            value: List<String>.from(
-                                                    settings['visibleFields'] ??
-                                                        [])
-                                                .contains(fieldName),
-                                            onChanged: (val) {
-                                              setState(() {
-                                                final visibleFields =
-                                                    List<String>.from(settings[
-                                                            'visibleFields'] ??
-                                                        []);
-                                                if (val) {
-                                                  visibleFields.add(fieldName);
-                                                } else {
-                                                  visibleFields
-                                                      .remove(fieldName);
-                                                }
-                                                settings['visibleFields'] =
-                                                    visibleFields;
-                                              });
-                                            },
+                                          const SizedBox(width: 8),
+                                          Tooltip(
+                                            message:
+                                                'Show/hide field in record list',
+                                            child: Switch(
+                                              value: List<String>.from(settings[
+                                                          'visibleFields'] ??
+                                                      [])
+                                                  .contains(fieldName),
+                                              onChanged: (val) {
+                                                setState(() {
+                                                  final visibleFields = List<
+                                                      String>.from(settings[
+                                                          'visibleFields'] ??
+                                                      []);
+                                                  if (val) {
+                                                    visibleFields
+                                                        .add(fieldName);
+                                                  } else {
+                                                    visibleFields
+                                                        .remove(fieldName);
+                                                  }
+                                                  settings['visibleFields'] =
+                                                      visibleFields;
+                                                });
+                                              },
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -543,6 +563,7 @@ class _SettingsTabState extends State<SettingsTab> {
                     fieldDisplay: fieldDisplay,
                     fieldAlignment: fieldAlignment,
                     fieldColor: fieldColor,
+                    userId: widget.userId,
                   ),
                 ],
               ),
@@ -590,6 +611,7 @@ class _RecordListPreview extends StatelessWidget {
   final Map<String, dynamic> fieldDisplay;
   final Map<String, dynamic> fieldAlignment;
   final Map<String, dynamic> fieldColor;
+  final String userId;
 
   const _RecordListPreview({
     required this.sectionId,
@@ -598,6 +620,7 @@ class _RecordListPreview extends StatelessWidget {
     required this.fieldDisplay,
     required this.fieldAlignment,
     required this.fieldColor,
+    required this.userId,
   });
 
   @override
@@ -606,8 +629,9 @@ class _RecordListPreview extends StatelessWidget {
     try {
       recordController = Get.find<RecordController>(tag: sectionId);
     } catch (_) {
-      recordController =
-          Get.put(RecordController(sectionId: sectionId), tag: sectionId);
+      recordController = Get.put(
+          RecordController(sectionId: sectionId, userId: userId),
+          tag: sectionId);
     }
     final fieldController = Get.find<FieldController>(tag: sectionId);
     final fields = fieldController.fields;

@@ -7,9 +7,11 @@ import 'section_create_view.dart';
 import 'section_create_view.dart' show sectionIcons;
 
 class SectionsListView extends StatelessWidget {
-  SectionsListView({Key? key}) : super(key: key);
+  final String userId;
+  SectionsListView(this.userId, {Key? key}) : super(key: key);
 
-  final SectionController sectionController = Get.put(SectionController());
+  late final SectionController sectionController =
+      Get.put(SectionController(userId: userId), tag: userId);
   final RxString searchQuery = ''.obs;
 
   @override
@@ -86,8 +88,8 @@ class SectionsListView extends StatelessWidget {
                                   : null,
                               trailing: Icon(Icons.arrow_forward_ios,
                                   color: Colors.deepPurple.shade200, size: 18),
-                              onTap: () => Get.to(
-                                  () => SectionDetailView(section: section)),
+                              onTap: () => Get.to(() => SectionDetailView(
+                                  section: section, userId: userId)),
                             ),
                           );
                         },
@@ -110,7 +112,7 @@ class SectionsListView extends StatelessWidget {
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => SectionCreateView(),
+      builder: (context) => SectionCreateView(userId),
     );
   }
 

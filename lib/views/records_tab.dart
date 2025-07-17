@@ -12,14 +12,20 @@ import 'package:image_picker/image_picker.dart';
 
 class RecordsTab extends StatelessWidget {
   final Section section;
-  const RecordsTab({Key? key, required this.section}) : super(key: key);
+  final String userId;
+  const RecordsTab({Key? key, required this.section, required this.userId})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final RecordController recordController =
-        Get.put(RecordController(sectionId: section.id), tag: section.id);
-    final FieldController fieldController =
-        Get.put(FieldController(sectionId: section.id), tag: section.id);
+    final RecordController recordController = Get.put(
+        RecordController(sectionId: section.id, userId: userId),
+        tag: '${section.id}_$userId');
+    final FieldController fieldController = Get.put(
+        FieldController(sectionId: section.id, userId: userId),
+        tag: '${section.id}_$userId');
+    final TextEditingController searchController = TextEditingController();
+    final RxString searchQuery = ''.obs;
     // Extract section settings
     final settings = section.settings ?? {};
     final List<String> fieldOrder = List<String>.from(
@@ -37,157 +43,206 @@ class RecordsTab extends StatelessWidget {
 
     return Stack(
       children: [
-        Obx(() {
-          var records = List<Record>.from(recordController.records);
-          final fields = fieldController.fields;
-          // Sort records if sortBy is set
-          if (sortBy != null && fields.any((f) => f.name == sortBy)) {
-            records.sort((a, b) {
-              final aValue = a.data[sortBy];
-              final bValue = b.data[sortBy];
-              if (aValue == null && bValue == null) return 0;
-              if (aValue == null) return sortOrder == 'asc' ? -1 : 1;
-              if (bValue == null) return sortOrder == 'asc' ? 1 : -1;
-              if (aValue is Comparable && bValue is Comparable) {
-                return sortOrder == 'asc'
-                    ? aValue.compareTo(bValue)
-                    : bValue.compareTo(aValue);
-              }
-              return 0;
-            });
-          }
-          if (records.isEmpty) {
-            return const Center(
-                child: Text('No records yet. Tap + to add one.'));
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: records.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 16),
-            itemBuilder: (context, index) {
-              final record = records[index];
-              // Use the first visible field as the title
-              String? titleValue;
-              if (fieldOrder.isNotEmpty) {
-                final firstVisible = fieldOrder.firstWhere(
-                  (f) =>
-                      visibleFields.contains(f) &&
-                      (fieldDisplay[f] ?? 'Normal') != 'Hidden',
-                  orElse: () => '',
-                );
-                if (firstVisible.isNotEmpty) {
-                  titleValue = record.data[firstVisible]?.toString();
-                }
-              }
-              return Card(
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Title at the top
-                      if (titleValue != null && titleValue.isNotEmpty) ...[
-                        Text(
-                          titleValue,
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const Divider(height: 20, thickness: 1),
-                      ],
-                      // Fields below
-                      ...fieldOrder
-                          .where((fieldName) =>
-                              visibleFields.contains(fieldName) &&
-                              (fieldDisplay[fieldName] ?? 'Normal') != 'Hidden')
-                          .map((fieldName) {
-                        final field =
-                            fields.firstWhereOrNull((f) => f.name == fieldName);
-                        if (field == null) return const SizedBox.shrink();
-                        final value = record.data[field.name];
-                        final display = fieldDisplay[field.name] ?? 'Normal';
-                        final align = fieldAlignment[field.name] ?? 'Left';
-                        final colorHex = fieldColor[field.name] ?? '#00000000';
-                        final color = _parseColor(colorHex);
-                        TextAlign textAlign = TextAlign.left;
-                        if (align == 'Center') textAlign = TextAlign.center;
-                        if (align == 'Right') textAlign = TextAlign.right;
-                        FontWeight fontWeight = FontWeight.normal;
-                        if (display == 'Bold') fontWeight = FontWeight.bold;
-                        // Skip the title field in the details
-                        if (fieldName == fieldOrder.first &&
-                            titleValue != null &&
-                            titleValue.isNotEmpty) {
-                          return const SizedBox.shrink();
-                        }
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                field.name,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color:
-                                      color.value == 0 ? Colors.black87 : color,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _formatFieldValue(field, value),
-                                style: TextStyle(
-                                  color:
-                                      color.value == 0 ? Colors.black87 : color,
-                                  fontWeight: fontWeight,
-                                  fontSize: 15,
-                                ),
-                                textAlign: textAlign,
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ],
-                  ),
+        Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: TextField(
+                controller: searchController,
+                decoration: InputDecoration(
+                  labelText: 'Search records',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
                 ),
-              );
-            },
-          );
-        }),
+                onChanged: (val) => searchQuery.value = val,
+              ),
+            ),
+            Expanded(
+              child: Obx(() {
+                var records = List<Record>.from(recordController.records);
+                final fields = fieldController.fields;
+                // Filter by search query
+                final query = searchQuery.value.trim().toLowerCase();
+                if (query.isNotEmpty) {
+                  records = records.where((record) {
+                    return record.data.values.any((v) =>
+                        v != null &&
+                        v.toString().toLowerCase().contains(query));
+                  }).toList();
+                }
+                // Sort records if sortBy is set
+                if (sortBy != null && fields.any((f) => f.name == sortBy)) {
+                  records.sort((a, b) {
+                    final aValue = a.data[sortBy];
+                    final bValue = b.data[sortBy];
+                    if (aValue == null && bValue == null) return 0;
+                    if (aValue == null) return sortOrder == 'asc' ? -1 : 1;
+                    if (bValue == null) return sortOrder == 'asc' ? 1 : -1;
+                    if (aValue is Comparable && bValue is Comparable) {
+                      return sortOrder == 'asc'
+                          ? aValue.compareTo(bValue)
+                          : bValue.compareTo(aValue);
+                    }
+                    return 0;
+                  });
+                }
+                if (records.isEmpty) {
+                  return const Center(
+                      child: Text('No records yet. Tap + to add one.'));
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: records.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  itemBuilder: (context, index) {
+                    final record = records[index];
+                    // Use the first visible field as the title
+                    String? titleValue;
+                    if (fieldOrder.isNotEmpty) {
+                      final firstVisible = fieldOrder.firstWhere(
+                        (f) =>
+                            visibleFields.contains(f) &&
+                            (fieldDisplay[f] ?? 'Normal') != 'Hidden',
+                        orElse: () => '',
+                      );
+                      if (firstVisible.isNotEmpty) {
+                        titleValue = record.data[firstVisible]?.toString();
+                      }
+                    }
+                    return Card(
+                      elevation: 3,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 12, horizontal: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                // Add record number
+                                Container(
+                                  margin: const EdgeInsets.only(right: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blueGrey.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '#${index + 1}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blueGrey,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => Get.dialog(RecordFormDialog(
+                                      sectionId: section.id,
+                                      userId: userId,
+                                      editRecord: record,
+                                    )),
+                                    child: Text(
+                                      titleValue ?? 'Record',
+                                      style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete,
+                                      color: Colors.red),
+                                  onPressed: () =>
+                                      recordController.deleteRecord(record.id),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ...fieldOrder
+                                .where((fieldName) =>
+                                    visibleFields.contains(fieldName) &&
+                                    (fieldDisplay[fieldName] ?? 'Normal') !=
+                                        'Hidden')
+                                .map((fieldName) {
+                              final field = fields
+                                  .firstWhereOrNull((f) => f.name == fieldName);
+                              if (field == null) return const SizedBox.shrink();
+                              final value = record.data[field.name];
+                              final display =
+                                  fieldDisplay[field.name] ?? 'Normal';
+                              final align =
+                                  fieldAlignment[field.name] ?? 'Left';
+                              final colorHex =
+                                  fieldColor[field.name] ?? '#00000000';
+                              final color = _parseColor(colorHex);
+                              TextAlign textAlign = TextAlign.left;
+                              if (align == 'Center')
+                                textAlign = TextAlign.center;
+                              if (align == 'Right') textAlign = TextAlign.right;
+                              FontWeight fontWeight = FontWeight.normal;
+                              if (display == 'Bold')
+                                fontWeight = FontWeight.bold;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _fieldIcon(field.type),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '${field.name}: ',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        _formatFieldValue(field, value),
+                                        textAlign: textAlign,
+                                        style: TextStyle(
+                                          color: color.value == 0
+                                              ? Colors.black87
+                                              : color,
+                                          fontWeight: fontWeight,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }),
+            ),
+          ],
+        ),
         Positioned(
           bottom: 24,
           right: 24,
           child: FloatingActionButton(
-            onPressed: () =>
-                Get.dialog(RecordFormDialog(sectionId: section.id)),
+            onPressed: () {
+              // Ensure controllers are registered with the correct tag before opening dialog
+              Get.put(FieldController(sectionId: section.id, userId: userId),
+                  tag: '${section.id}_$userId');
+              Get.put(RecordController(sectionId: section.id, userId: userId),
+                  tag: '${section.id}_$userId');
+              Get.dialog(
+                RecordFormDialog(sectionId: section.id, userId: userId),
+              );
+            },
             child: const Icon(Icons.add),
             tooltip: 'Add Record',
           ),
         ),
       ],
-    );
-  }
-
-  void _confirmDeleteRecord(
-      BuildContext context, RecordController controller, Record record) {
-    Get.defaultDialog(
-      title: 'Delete Record',
-      middleText: 'Are you sure you want to delete this record?',
-      textCancel: 'Cancel',
-      textConfirm: 'Delete',
-      confirmTextColor: Colors.white,
-      onConfirm: () {
-        controller.recordBox.delete(record.id);
-        controller.records.removeWhere((r) => r.id == record.id);
-        Get.back();
-        Get.snackbar('Deleted', 'Record deleted',
-            snackPosition: SnackPosition.BOTTOM);
-      },
     );
   }
 
@@ -260,7 +315,14 @@ class RecordsTab extends StatelessWidget {
 
 class RecordFormDialog extends StatefulWidget {
   final String sectionId;
-  const RecordFormDialog({Key? key, required this.sectionId}) : super(key: key);
+  final Record? editRecord;
+  final String userId;
+  const RecordFormDialog(
+      {Key? key,
+      required this.sectionId,
+      required this.userId,
+      this.editRecord})
+      : super(key: key);
 
   @override
   State<RecordFormDialog> createState() => _RecordFormDialogState();
@@ -274,26 +336,59 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
   @override
   void initState() {
     super.initState();
-    fieldController = Get.find<FieldController>(tag: widget.sectionId);
-    recordController = Get.find<RecordController>(tag: widget.sectionId);
-    for (final field in fieldController.fields) {
-      formData[field.name] = field.defaultValue;
-    }
+    // Use the same tag as registration
+    final tag = '${widget.sectionId}_${widget.userId}';
+    fieldController = Get.find<FieldController>(tag: tag);
+    recordController = Get.find<RecordController>(tag: tag);
+    // Do not pre-populate formData here, do it reactively in build
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Add Record'),
+      title: Text(widget.editRecord == null ? 'Add Record' : 'Edit Record'),
       content: SingleChildScrollView(
         child: Obx(() {
           final fields = fieldController.fields;
+          // Populate formData with default values if not already set
+          for (final field in fields) {
+            if (!formData.containsKey(field.name)) {
+              formData[field.name] = field.defaultValue;
+            }
+          }
           if (fields.isEmpty) {
             return const Text('No fields defined for this section.');
           }
           return Column(
             mainAxisSize: MainAxisSize.min,
-            children: fields.map((field) => _buildField(field)).toList(),
+            children: fields
+                .where((field) {
+                  if (field.conditionalVisibility == null ||
+                      field.conditionalVisibility!.isEmpty) {
+                    return true;
+                  }
+                  try {
+                    // Very basic evaluator: supports 'formData["FieldName"] == "value"' and similar
+                    final condition = field.conditionalVisibility!;
+                    final regex = RegExp(
+                        r'formData\["([^\"]+)"\]\s*([!=]=)\s*"([^\"]*)"');
+                    final match = regex.firstMatch(condition);
+                    if (match != null) {
+                      final key = match.group(1)!;
+                      final op = match.group(2)!;
+                      final val = match.group(3)!;
+                      final current = formData[key]?.toString() ?? '';
+                      if (op == '==') return current == val;
+                      if (op == '!=') return current != val;
+                    }
+                    // If cannot parse, default to visible
+                    return true;
+                  } catch (_) {
+                    return true;
+                  }
+                })
+                .map((field) => _buildField(field))
+                .toList(),
           );
         }),
       ),
@@ -304,7 +399,7 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
         ),
         ElevatedButton(
           onPressed: _submit,
-          child: const Text('Add'),
+          child: Text(widget.editRecord == null ? 'Add' : 'Save'),
         ),
       ],
     );
@@ -512,10 +607,11 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
         // For now, simulate relation by letting user pick a record from the target section
         final targetSectionId = field.relations?['section'];
         List<Record> relatedRecords = [];
+        final String userId = widget.userId;
         if (targetSectionId != null) {
           try {
             final relatedController = Get.put(
-                RecordController(sectionId: targetSectionId),
+                RecordController(sectionId: targetSectionId, userId: userId),
                 tag: targetSectionId);
             relatedRecords = relatedController.records;
           } catch (_) {}
@@ -537,43 +633,42 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
       case 'computed':
         // Evaluate the formula using formData (simple expressions only)
         String computedValue = '';
+        String? error;
         if (field.formula != null && field.formula!.isNotEmpty) {
           try {
-            // Very basic: replace {fieldName} with value from formData
             computedValue = field.formula!;
             final regex = RegExp(r'\{([^}]+)\}');
             computedValue = computedValue.replaceAllMapped(regex, (match) {
               final key = match.group(1)!;
-              return formData[key]?.toString() ?? '';
+              return formData[key]?.toString() ?? '0';
             });
             // Optionally, try to evaluate simple math
-            if (RegExp(r'^[0-9+\-*/. ]+ 0$').hasMatch(computedValue)) {
-              computedValue = _tryEval(computedValue).toString();
-            }
-          } catch (_) {}
+            computedValue = _tryEval(computedValue).toString();
+          } catch (e) {
+            error = 'Error: ${e.toString()}';
+          }
         }
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: TextFormField(
-            initialValue: computedValue,
+            initialValue: error != null ? error : computedValue,
             decoration: InputDecoration(
               labelText: field.name + ' (Computed)',
               suffixIcon: const Icon(Icons.calculate),
+              errorText: error,
             ),
             readOnly: true,
           ),
         );
       // Advanced/unsupported types
-      case 'computed':
-      case 'relation':
-      case 'attachment':
       case 'signature':
       case 'barcode':
       case 'location':
       case 'custom_code':
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: Text('${field.type} field is not yet supported for input.'),
+          child: Text(
+              '${field.type[0].toUpperCase()}${field.type.substring(1)} field is not yet supported for input. Planned for a future update.'),
         );
       default:
         return Padding(
@@ -584,9 +679,17 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
   }
 
   num _tryEval(String expr) {
-    // Very basic math evaluator (supports +, -, *, /)
+    // Improved math evaluator: supports +, -, *, /, parentheses
     try {
       expr = expr.replaceAll(' ', '');
+      if (expr.contains('(')) {
+        // Handle parentheses recursively
+        final paren = RegExp(r'\(([^()]+)\)');
+        while (paren.hasMatch(expr)) {
+          expr = expr.replaceAllMapped(
+              paren, (m) => _tryEval(m.group(1)!).toString());
+        }
+      }
       if (expr.contains('+')) {
         return expr.split('+').map(_tryEval).reduce((a, b) => a + b);
       } else if (expr.contains('-')) {
@@ -599,26 +702,91 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
       } else {
         return num.parse(expr);
       }
-    } catch (_) {
-      return 0;
+    } catch (e) {
+      throw Exception('Invalid formula');
     }
   }
 
   void _submit() {
     final fields = fieldController.fields;
+    // Validation enforcement
     for (final field in fields) {
-      if (field.requiredField &&
-          (formData[field.name] == null ||
-              formData[field.name].toString().isEmpty)) {
+      final value = formData[field.name];
+      // Required
+      if (field.requiredField && (value == null || value.toString().isEmpty)) {
         Get.snackbar('Error', 'Field "${field.name}" is required',
             snackPosition: SnackPosition.BOTTOM);
         return;
       }
+      // Unique
+      if (field.unique && value != null && value.toString().isNotEmpty) {
+        final isDuplicate = recordController.records.any((r) =>
+            r.id != (widget.editRecord?.id ?? '') &&
+            r.data[field.name] == value);
+        if (isDuplicate) {
+          Get.snackbar('Error', 'Field "${field.name}" must be unique',
+              snackPosition: SnackPosition.BOTTOM);
+          return;
+        }
+      }
+      // Regex validation
+      if (field.validation != null &&
+          field.validation!['regex'] != null &&
+          value != null &&
+          value.toString().isNotEmpty) {
+        final regex = RegExp(field.validation!['regex']);
+        if (!regex.hasMatch(value.toString())) {
+          Get.snackbar('Error',
+              'Field "${field.name}" does not match the required format',
+              snackPosition: SnackPosition.BOTTOM);
+          return;
+        }
+      }
+      // Min/Max (for numbers)
+      if ((field.type == 'number' || field.type == 'currency') &&
+          value != null &&
+          value.toString().isNotEmpty) {
+        final numValue = num.tryParse(value.toString());
+        if (field.validation != null) {
+          if (field.validation!['min'] != null &&
+              numValue != null &&
+              numValue < field.validation!['min']) {
+            Get.snackbar('Error',
+                'Field "${field.name}" must be at least ${field.validation!['min']}',
+                snackPosition: SnackPosition.BOTTOM);
+            return;
+          }
+          if (field.validation!['max'] != null &&
+              numValue != null &&
+              numValue > field.validation!['max']) {
+            Get.snackbar('Error',
+                'Field "${field.name}" must be at most ${field.validation!['max']}',
+                snackPosition: SnackPosition.BOTTOM);
+            return;
+          }
+        }
+      }
     }
-    recordController.addRecord(Map<String, dynamic>.from(formData));
-    Get.back();
-    Get.snackbar('Success', 'Record added',
-        snackPosition: SnackPosition.BOTTOM);
+    final data = Map<String, dynamic>.from(formData);
+    if (widget.editRecord == null) {
+      recordController.addRecord(data);
+      Get.back();
+      Get.snackbar('Success', 'Record added',
+          snackPosition: SnackPosition.BOTTOM);
+    } else {
+      final updated = Record(
+        id: widget.editRecord!.id,
+        sectionId: widget.editRecord!.sectionId,
+        data: data,
+        attachments: widget.editRecord!.attachments,
+        relations: widget.editRecord!.relations,
+        synced: widget.editRecord!.synced,
+      );
+      recordController.editRecord(updated);
+      Get.back();
+      Get.snackbar('Success', 'Record updated',
+          snackPosition: SnackPosition.BOTTOM);
+    }
   }
 }
 
@@ -752,7 +920,7 @@ class _ColorField extends StatelessWidget {
                   title: const Text('Pick a color'),
                   content: SingleChildScrollView(
                     child: BlockPicker(
-                      pickerColor: selectedColor!,
+                      pickerColor: selectedColor,
                       onColorChanged: (c) => Navigator.of(context).pop(c),
                     ),
                   ),

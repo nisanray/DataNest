@@ -20,6 +20,8 @@ class Section extends HiveObject {
   bool synced;
   @HiveField(7)
   Map<String, dynamic>? settings;
+  @HiveField(8)
+  String? userId;
 
   Section({
     required this.id,
@@ -30,5 +32,32 @@ class Section extends HiveObject {
     this.order,
     this.synced = false,
     this.settings,
+    this.userId,
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'icon': icon,
+        'color': color,
+        'description': description,
+        'order': order,
+        'synced': synced,
+        'settings': settings,
+        'userId': userId,
+      };
+
+  static Section fromJson(Map<String, dynamic> json) => Section(
+        id: json['id'],
+        name: json['name'],
+        icon: json['icon'],
+        color: json['color'],
+        description: json['description'],
+        order: json['order'],
+        synced: json['synced'] ?? false,
+        settings: json['settings'] != null
+            ? Map<String, dynamic>.from(json['settings'])
+            : null,
+        userId: json['userId'],
+      );
 }

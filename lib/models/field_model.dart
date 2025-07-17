@@ -36,6 +36,8 @@ class Field extends HiveObject {
   int? order;
   @HiveField(15)
   bool synced;
+  @HiveField(16)
+  String? userId;
 
   Field({
     required this.id,
@@ -54,5 +56,54 @@ class Field extends HiveObject {
     this.conditionalVisibility,
     this.order,
     this.synced = false,
+    this.userId,
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'sectionId': sectionId,
+        'name': name,
+        'type': type,
+        'requiredField': requiredField,
+        'defaultValue': defaultValue,
+        'hint': hint,
+        'unique': unique,
+        'allowedOptions': allowedOptions,
+        'validation': validation,
+        'attachmentRules': attachmentRules,
+        'relations': relations,
+        'formula': formula,
+        'conditionalVisibility': conditionalVisibility,
+        'order': order,
+        'synced': synced,
+        'userId': userId,
+      };
+
+  static Field fromJson(Map<String, dynamic> json) => Field(
+        id: json['id'],
+        sectionId: json['sectionId'],
+        name: json['name'],
+        type: json['type'],
+        requiredField: json['requiredField'] ?? false,
+        defaultValue: json['defaultValue'],
+        hint: json['hint'],
+        unique: json['unique'] ?? false,
+        allowedOptions: json['allowedOptions'] != null
+            ? List<dynamic>.from(json['allowedOptions'])
+            : null,
+        validation: json['validation'] != null
+            ? Map<String, dynamic>.from(json['validation'])
+            : null,
+        attachmentRules: json['attachmentRules'] != null
+            ? Map<String, dynamic>.from(json['attachmentRules'])
+            : null,
+        relations: json['relations'] != null
+            ? Map<String, dynamic>.from(json['relations'])
+            : null,
+        formula: json['formula'],
+        conditionalVisibility: json['conditionalVisibility'],
+        order: json['order'],
+        synced: json['synced'] ?? false,
+        userId: json['userId'],
+      );
 }

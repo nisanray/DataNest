@@ -6,11 +6,35 @@ import 'section_detail_view.dart';
 import 'section_create_view.dart';
 import 'section_create_view.dart' show sectionIcons;
 import 'sections_list_view.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../controllers/record_controller.dart';
+import '../models/record_model.dart';
+import '../controllers/field_controller.dart';
+import '../models/field_model.dart';
+import 'package:hive/hive.dart';
+import 'dart:convert';
+import 'hive_data_viewer.dart';
+import '../services/sync_service.dart';
+import '../main.dart'; // For SyncStatusController
 
-class HomeView extends StatelessWidget {
-  HomeView({Key? key}) : super(key: key);
+class HomeView extends StatefulWidget {
+  final String userId;
+  const HomeView({Key? key, required this.userId}) : super(key: key);
 
-  final SectionController sectionController = Get.put(SectionController());
+  @override
+  State<HomeView> createState() => _HomeViewState();
+}
+
+class _HomeViewState extends State<HomeView> {
+  late final SectionController sectionController =
+      Get.put(SectionController(userId: widget.userId), tag: widget.userId);
+
+  @override
+  void initState() {
+    super.initState();
+    // Sync user data from Firebase to Hive after login
+    SyncService(userId: widget.userId).onUserLogin();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +51,41 @@ class HomeView extends StatelessWidget {
             tooltip: 'Menu',
           ),
         ),
+        actions: [
+          Obx(() {
+            final sync = Get.find<SyncStatusController>();
+            if (sync.isSyncing.value) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Row(
+                  children: const [
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.cloud_sync, color: Colors.blue),
+                  ],
+                ),
+              );
+            } else {
+              return Icon(
+                Icons.cloud_sync,
+                color: Colors.green,
+                semanticLabel: 'Synced',
+              );
+            }
+          }),
+          IconButton(
+            icon: const Icon(Icons.storage),
+            tooltip: 'View Hive Data',
+            onPressed: () => showDialog(
+              context: context,
+              builder: (context) => const HiveDataViewer(),
+            ),
+          ),
+        ],
       ),
       drawer: Drawer(
         child: Obx(() {
@@ -44,7 +103,7 @@ class HomeView extends StatelessWidget {
                 ),
                 accountName: const Text('Welcome!',
                     style: TextStyle(fontWeight: FontWeight.bold)),
-                accountEmail: const Text('Your DataNest Workspace'),
+                accountEmail: Text(widget.userId),
                 currentAccountPicture: CircleAvatar(
                   backgroundColor: Colors.white,
                   child: Icon(Icons.person, color: Colors.deepPurple, size: 36),
@@ -55,7 +114,6 @@ class HomeView extends StatelessWidget {
                     tooltip: 'Settings',
                     onPressed: () {
                       Navigator.pop(context);
-                      // Add settings navigation if needed
                     },
                   ),
                 ],
@@ -77,7 +135,7 @@ class HomeView extends StatelessWidget {
                 ),
                 onTap: () {
                   Navigator.pop(context);
-                  Get.to(() => SectionsListView());
+                  Get.to(() => SectionsListView(widget.userId));
                 },
               ),
               ListTile(
@@ -124,18 +182,16 @@ class HomeView extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.logout),
                 title: const Text('Logout'),
-                onTap: () {
-                  // Add logout logic if needed
+                onTap: () async {
+                  await FirebaseAuth.instance.signOut();
                   Navigator.pop(context);
-                  Get.snackbar('Logout', 'Logout action (not implemented)',
-                      snackPosition: SnackPosition.BOTTOM);
                 },
               ),
             ],
           );
         }),
       ),
-      body: _buildDashboard(context),
+      body: _buildSectionwiseRecords(context),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateSectionModal(context),
         icon: const Icon(Icons.add),
@@ -149,7 +205,7 @@ class HomeView extends StatelessWidget {
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => SectionCreateView(),
+      builder: (context) => SectionCreateView(widget.userId),
     );
   }
 
@@ -205,87 +261,105 @@ class HomeView extends StatelessWidget {
     );
   }
 
-  Widget _buildDashboard(BuildContext context) {
+  Widget _buildSectionwiseRecords(BuildContext context) {
     final sections = sectionController.sections;
-    final int totalRecords = 0;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          const Text('Welcome to DataNest!',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          const Text('Your no-code data platform dashboard.',
-              style: TextStyle(fontSize: 16, color: Colors.grey)),
-          const SizedBox(height: 32),
-          Row(
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: sections.length,
+      itemBuilder: (context, index) {
+        final section = sections[index];
+        final recordController = Get.put(
+            RecordController(sectionId: section.id, userId: widget.userId),
+            tag: '${section.id}_${widget.userId}');
+        final fieldController = Get.put(
+            FieldController(sectionId: section.id, userId: widget.userId),
+            tag: '${section.id}_${widget.userId}');
+        return Card(
+          margin: const EdgeInsets.only(bottom: 20),
+          child: ExpansionTile(
+            title: Row(
+              children: [
+                Icon(_getSectionIcon(section.icon),
+                    color: _parseColor(section.color ?? '#673ab7')),
+                const SizedBox(width: 12),
+                Text(section.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+            subtitle: Text(section.description ?? ''),
             children: [
-              Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () {
-                    Get.to(() => SectionsListView());
-                  },
-                  child: Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 24, horizontal: 16),
-                      child: Column(
-                        children: [
-                          const Icon(Icons.folder,
-                              color: Colors.deepPurple, size: 32),
-                          const SizedBox(height: 8),
-                          Text('${sections.length}',
-                              style: const TextStyle(
-                                  fontSize: 22, fontWeight: FontWeight.bold)),
-                          const Text('Sections',
-                              style: TextStyle(fontSize: 15)),
-                        ],
-                      ),
-                    ),
+              // Show fields (items) of the section
+              Obx(() {
+                final fields = fieldController.fields;
+                if (fields.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Text('No fields in this section.'),
+                  );
+                }
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0, vertical: 8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Fields:',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      ...fields
+                          .map((field) => Row(
+                                children: [
+                                  Icon(Icons.view_column,
+                                      size: 16, color: Colors.deepPurple),
+                                  const SizedBox(width: 6),
+                                  Text(field.name,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w500)),
+                                  const SizedBox(width: 8),
+                                  Text('(${field.type})',
+                                      style:
+                                          const TextStyle(color: Colors.grey)),
+                                ],
+                              ))
+                          .toList(),
+                      const Divider(),
+                    ],
                   ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () {
-                    Get.snackbar('Records', 'Record analytics coming soon!',
-                        snackPosition: SnackPosition.BOTTOM);
+                );
+              }),
+              // Show records as before
+              Obx(() {
+                final records = recordController.records;
+                if (records.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text('No records in this section.'),
+                  );
+                }
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: records.length,
+                  separatorBuilder: (_, __) => const Divider(),
+                  itemBuilder: (context, recIdx) {
+                    final record = records[recIdx];
+                    return ListTile(
+                      title: Text(record.data.keys.isNotEmpty
+                          ? record.data.values.first.toString()
+                          : 'Record'),
+                      subtitle: Text(record.data.entries
+                          .map((e) => '${e.key}: ${e.value}')
+                          .join(', ')),
+                      onTap: () => Get.to(() => SectionDetailView(
+                          section: section, userId: widget.userId)),
+                    );
                   },
-                  child: Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 24, horizontal: 16),
-                      child: Column(
-                        children: [
-                          const Icon(Icons.table_rows,
-                              color: Colors.teal, size: 32),
-                          const SizedBox(height: 8),
-                          Text('$totalRecords',
-                              style: const TextStyle(
-                                  fontSize: 22, fontWeight: FontWeight.bold)),
-                          const Text('Records', style: TextStyle(fontSize: 15)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+                );
+              }),
             ],
           ),
-          const SizedBox(height: 32),
-        ],
-      ),
+        );
+      },
     );
   }
 }
