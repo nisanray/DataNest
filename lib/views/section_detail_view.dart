@@ -9,6 +9,7 @@ import 'package:get/get.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'settings_tab.dart';
 import '../controllers/record_controller.dart';
+import 'package:flutter/foundation.dart';
 
 class SectionDetailView extends StatefulWidget {
   final Section section;
@@ -23,10 +24,14 @@ class SectionDetailView extends StatefulWidget {
 
 class _SectionDetailViewState extends State<SectionDetailView> {
   late SectionController sectionController;
+  late RecordController recordController;
+  late FieldController fieldController;
 
   @override
   void initState() {
     super.initState();
+    debugPrint(
+        '[UI] SectionDetailView initialized for section: ${widget.section.id}, user: ${widget.userId}');
     if (Get.isRegistered<SectionController>(tag: widget.userId)) {
       sectionController = Get.find<SectionController>(tag: widget.userId);
     } else {
@@ -36,12 +41,12 @@ class _SectionDetailViewState extends State<SectionDetailView> {
     // Register FieldController and RecordController for this section+user
     final tag = '${widget.section.id}_${widget.userId}';
     if (!Get.isRegistered<FieldController>(tag: tag)) {
-      Get.put(
+      fieldController = Get.put(
           FieldController(sectionId: widget.section.id, userId: widget.userId),
           tag: tag);
     }
     if (!Get.isRegistered<RecordController>(tag: tag)) {
-      Get.put(
+      recordController = Get.put(
           RecordController(sectionId: widget.section.id, userId: widget.userId),
           tag: tag);
     }
@@ -50,6 +55,8 @@ class _SectionDetailViewState extends State<SectionDetailView> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint(
+        '[UI] SectionDetailView build for section: ${widget.section.id}');
     final iconData = sectionIcons.firstWhere(
       (icon) => icon['value'] == widget.section.icon,
       orElse: () => sectionIcons.first,

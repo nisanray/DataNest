@@ -23,6 +23,7 @@ class _SectionsListViewState extends State<SectionsListView> {
   @override
   void initState() {
     super.initState();
+    debugPrint('[UI] SectionsListView initialized for user: ${widget.userId}');
     if (Get.isRegistered<SectionController>(tag: widget.userId)) {
       sectionController = Get.find<SectionController>(tag: widget.userId);
     } else {
@@ -33,6 +34,7 @@ class _SectionsListViewState extends State<SectionsListView> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('[UI] SectionsListView build for user: ${widget.userId}');
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sections',
@@ -58,12 +60,15 @@ class _SectionsListViewState extends State<SectionsListView> {
             child: ValueListenableBuilder(
               valueListenable: sectionController.listenable,
               builder: (context, Box<Section> box, _) {
+                debugPrint('[UI] ValueListenableBuilder triggered');
                 final allSections = sectionController.filteredSections;
                 final sections = allSections.where((section) {
                   final query = searchQuery.value.toLowerCase();
                   return section.name.toLowerCase().contains(query);
                 }).toList();
+                debugPrint('[UI] Filtered sections count: ${sections.length}');
                 if (sections.isEmpty) {
+                  debugPrint('[UI] No sections found, showing empty state');
                   return const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -83,6 +88,7 @@ class _SectionsListViewState extends State<SectionsListView> {
                     ),
                   );
                 }
+                debugPrint('[UI] Displaying ${sections.length} sections');
                 return ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding:
@@ -91,6 +97,7 @@ class _SectionsListViewState extends State<SectionsListView> {
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final section = sections[index];
+                    debugPrint('[UI] Building section item: ${section.name}');
                     return Card(
                       elevation: 2,
                       shape: RoundedRectangleBorder(
@@ -118,6 +125,8 @@ class _SectionsListViewState extends State<SectionsListView> {
                               icon: Icon(Icons.delete, color: Colors.red),
                               tooltip: 'Delete Section',
                               onPressed: () async {
+                                debugPrint(
+                                    '[UI] Delete Section button pressed for: ${section.name}');
                                 final confirm = await showDialog<bool>(
                                   context: context,
                                   builder: (context) => AlertDialog(
@@ -143,6 +152,8 @@ class _SectionsListViewState extends State<SectionsListView> {
                                   ),
                                 );
                                 if (confirm == true) {
+                                  debugPrint(
+                                      '[UI] Deleting section: ${section.name}');
                                   sectionController.deleteSection(section.id);
                                   Get.snackbar('Deleted', 'Section deleted',
                                       snackPosition: SnackPosition.BOTTOM);
@@ -154,6 +165,8 @@ class _SectionsListViewState extends State<SectionsListView> {
                           ],
                         ),
                         onTap: () {
+                          debugPrint(
+                              '[UI] Navigating to SectionDetailView for section: ${section.name}');
                           Future.microtask(() {
                             Get.to(() => SectionDetailView(
                                 section: section, userId: widget.userId));
@@ -178,6 +191,7 @@ class _SectionsListViewState extends State<SectionsListView> {
   }
 
   void _showCreateSectionModal(BuildContext context) {
+    debugPrint('[UI] New Section button pressed');
     showDialog(
       context: context,
       barrierDismissible: true,

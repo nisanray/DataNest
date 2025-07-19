@@ -4,6 +4,7 @@ import '../models/section_model.dart';
 import '../models/field_model.dart';
 import '../models/record_model.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 
 class SyncService {
   final String userId;
@@ -16,9 +17,11 @@ class SyncService {
 
   /// Download all user data from Firebase and update Hive (no duplicates)
   Future<void> syncFromFirebase() async {
+    debugPrint('[SYNC] syncFromFirebase called for user: $userId');
     await _syncSectionsFromFirebase();
     await _syncFieldsFromFirebase();
     await _syncRecordsFromFirebase();
+    debugPrint('[SYNC] syncFromFirebase completed for user: $userId');
   }
 
   /// Upload all unsynced data from Hive to Firebase
@@ -30,8 +33,10 @@ class SyncService {
 
   /// Call this after login
   Future<void> onUserLogin() async {
+    debugPrint('[SYNC] onUserLogin called for user: $userId');
     await syncFromFirebase();
     await syncToFirebase();
+    debugPrint('[SYNC] onUserLogin completed for user: $userId');
   }
 
   /// Call this after add/edit/delete
@@ -50,15 +55,25 @@ class SyncService {
   // --- Section Sync ---
   Future<void> _syncSectionsFromFirebase() async {
     final box = await Hive.openBox<Section>('sections');
+    debugPrint('[SYNC] Fetching sections from Firebase for user: $userId');
     final snapshot = await FirebaseFirestore.instance
         .collection('sections')
         .where('userId', isEqualTo: userId)
         .get();
+    debugPrint(
+        '[SYNC] Fetched ${snapshot.docs.length} sections from Firebase.');
     for (final doc in snapshot.docs) {
       final remote = Section.fromJson(doc.data());
       final local = box.get(remote.id);
-      if (local == null || (local.synced == false)) {
+      if (local == null) {
+        debugPrint('[SYNC] Adding new section to Hive: ${remote.id}');
         await box.put(remote.id, remote);
+      } else if (local.synced == false) {
+        debugPrint('[SYNC] Overwriting unsynced section in Hive: ${remote.id}');
+        await box.put(remote.id, remote);
+      } else {
+        debugPrint(
+            '[SYNC] Skipping section (already synced in Hive): ${remote.id}');
       }
     }
   }
@@ -91,15 +106,24 @@ class SyncService {
   // --- Field Sync ---
   Future<void> _syncFieldsFromFirebase() async {
     final box = await Hive.openBox<Field>('fields');
+    debugPrint('[SYNC] Fetching fields from Firebase for user: $userId');
     final snapshot = await FirebaseFirestore.instance
         .collection('fields')
         .where('userId', isEqualTo: userId)
         .get();
+    debugPrint('[SYNC] Fetched ${snapshot.docs.length} fields from Firebase.');
     for (final doc in snapshot.docs) {
       final remote = Field.fromJson(doc.data());
       final local = box.get(remote.id);
-      if (local == null || (local.synced == false)) {
+      if (local == null) {
+        debugPrint('[SYNC] Adding new field to Hive: ${remote.id}');
         await box.put(remote.id, remote);
+      } else if (local.synced == false) {
+        debugPrint('[SYNC] Overwriting unsynced field in Hive: ${remote.id}');
+        await box.put(remote.id, remote);
+      } else {
+        debugPrint(
+            '[SYNC] Skipping field (already synced in Hive): ${remote.id}');
       }
     }
   }
@@ -140,15 +164,24 @@ class SyncService {
   // --- Record Sync ---
   Future<void> _syncRecordsFromFirebase() async {
     final box = await Hive.openBox<Record>('records');
+    debugPrint('[SYNC] Fetching records from Firebase for user: $userId');
     final snapshot = await FirebaseFirestore.instance
         .collection('records')
         .where('userId', isEqualTo: userId)
         .get();
+    debugPrint('[SYNC] Fetched ${snapshot.docs.length} records from Firebase.');
     for (final doc in snapshot.docs) {
       final remote = Record.fromJson(doc.data());
       final local = box.get(remote.id);
-      if (local == null || (local.synced == false)) {
+      if (local == null) {
+        debugPrint('[SYNC] Adding new record to Hive: ${remote.id}');
         await box.put(remote.id, remote);
+      } else if (local.synced == false) {
+        debugPrint('[SYNC] Overwriting unsynced record in Hive: ${remote.id}');
+        await box.put(remote.id, remote);
+      } else {
+        debugPrint(
+            '[SYNC] Skipping record (already synced in Hive): ${remote.id}');
       }
     }
   }

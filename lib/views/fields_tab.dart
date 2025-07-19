@@ -22,6 +22,7 @@ class _FieldsTabState extends State<FieldsTab> {
   @override
   void initState() {
     super.initState();
+    debugPrint('[UI] FieldsTab initialized');
     if (Get.isRegistered<FieldController>(
         tag: '${widget.section.id}_${widget.userId}')) {
       fieldController = Get.find<FieldController>(
@@ -35,6 +36,7 @@ class _FieldsTabState extends State<FieldsTab> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('[UI] FieldsTab build');
     return Stack(
       children: [
         ValueListenableBuilder(
@@ -327,6 +329,7 @@ class _FieldsTabState extends State<FieldsTab> {
                           : null,
                   order: order,
                 );
+                debugPrint('[UI] Creating new field: ${field.name}');
                 if (editField == null) {
                   controller.addField(field);
                   Get.snackbar('Success', 'Field added',
@@ -337,6 +340,7 @@ class _FieldsTabState extends State<FieldsTab> {
                   final idx = controller.filteredFields
                       .indexWhere((f) => f.id == field.id);
                   if (idx != -1) controller.filteredFields[idx] = field;
+                  debugPrint('[UI] Updating field: ${field.id}');
                   Get.snackbar('Success', 'Field updated',
                       snackPosition: SnackPosition.BOTTOM);
                 }
@@ -352,6 +356,7 @@ class _FieldsTabState extends State<FieldsTab> {
 
   void _confirmDeleteField(
       BuildContext context, FieldController controller, Field field) {
+    debugPrint('[UI] Deleting field: ${field.id}');
     Get.defaultDialog(
       title: 'Delete Field',
       middleText: 'Are you sure you want to delete this field?',

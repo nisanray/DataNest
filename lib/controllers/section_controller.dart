@@ -12,7 +12,10 @@ class SectionController extends GetxController {
 
   /// Show all sections from Hive (for admin/debug)
   List<Section> getAllSectionsFromHive() {
-    return sectionBox.values.toList();
+    final sections = sectionBox.values.toList();
+    debugPrint(
+        '[SECTION] Loaded ${sections.length} sections from Hive for user: $userId');
+    return sections;
   }
 
   /// Sync all unsynced sections for this user to Firestore
@@ -20,6 +23,8 @@ class SectionController extends GetxController {
     final unsynced = sectionBox.values
         .where((s) => s.userId == userId && s.synced == false)
         .toList();
+    debugPrint(
+        '[SECTION] Syncing ${unsynced.length} unsynced sections to Firestore for user: $userId');
     for (final section in unsynced) {
       await FirebaseFirestore.instance
           .collection('sections')
@@ -38,6 +43,8 @@ class SectionController extends GetxController {
         userId: section.userId,
       );
       await sectionBox.put(section.id, updated);
+      debugPrint(
+          '[SECTION] Synced section to Firestore and updated in Hive: ${section.id}');
     }
   }
 

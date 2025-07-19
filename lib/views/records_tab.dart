@@ -35,12 +35,14 @@ class _RecordsTabState extends State<RecordsTab> {
   @override
   void initState() {
     super.initState();
+    debugPrint('[UI] RecordsTab initialized');
     // recordController.loadRecords(); // Always reload from Hive
     // fieldController.loadFields(); // Always reload from Hive
   }
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('[UI] RecordsTab build');
     final settings = widget.section.settings ?? {};
     // All logic below only reads state, never updates it
     final List<String> fieldOrder = List<String>.from(settings['fieldOrder'] ??
@@ -237,6 +239,7 @@ class _RecordsTabState extends State<RecordsTab> {
               right: 24,
               child: FloatingActionButton(
                 onPressed: () {
+                  debugPrint('[UI] FloatingActionButton onPressed: Add Record');
                   // Ensure controllers are registered with the correct tag before opening dialog
                   Get.put(
                       FieldController(
@@ -372,6 +375,7 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('[UI] RecordFormDialog build');
     return AlertDialog(
       title: Text(widget.editRecord == null ? 'Add Record' : 'Edit Record'),
       content: SingleChildScrollView(
@@ -794,11 +798,13 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
     }
     final data = Map<String, dynamic>.from(formData);
     if (widget.editRecord == null) {
+      debugPrint('[UI] Creating new record');
       recordController.addRecord(data);
       Get.back();
       Get.snackbar('Success', 'Record added',
           snackPosition: SnackPosition.BOTTOM);
     } else {
+      debugPrint('[UI] Updating record: ${widget.editRecord!.id}');
       final updated = Record(
         id: widget.editRecord!.id,
         sectionId: widget.editRecord!.sectionId,

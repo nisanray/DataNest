@@ -35,6 +35,7 @@ class _HomeViewState extends State<HomeView> {
     super.initState();
     sectionController =
         Get.put(SectionController(userId: widget.userId), tag: widget.userId);
+    debugPrint('[UI] HomeView initialized for user: ${widget.userId}');
     // Sync user data from Firebase to Hive after login
     SyncService(userId: widget.userId).onUserLogin();
     // sectionController.loadSections(); // Always reload from Hive
@@ -53,6 +54,7 @@ class _HomeViewState extends State<HomeView> {
             icon: const Icon(Icons.sync),
             tooltip: 'Sync',
             onPressed: () {
+              debugPrint('[UI] Manual sync triggered from HomeView');
               final syncController = Get.find<SyncStatusController>();
               syncController.syncNow();
             },
@@ -75,6 +77,7 @@ class _HomeViewState extends State<HomeView> {
                   icon: const Icon(Icons.settings, color: Colors.white),
                   tooltip: 'Settings',
                   onPressed: () {
+                    debugPrint('[UI] Settings icon tapped in drawer');
                     Navigator.pop(context);
                   },
                 ),
@@ -83,12 +86,16 @@ class _HomeViewState extends State<HomeView> {
             ListTile(
               leading: const Icon(Icons.dashboard),
               title: const Text('Dashboard'),
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                debugPrint('[UI] Dashboard tapped in drawer');
+                Navigator.pop(context);
+              },
             ),
             ListTile(
               leading: const Icon(Icons.add),
               title: const Text('New Section'),
               onTap: () {
+                debugPrint('[UI] New Section tapped in drawer');
                 Navigator.pop(context);
                 _showCreateSectionModal(context);
               },
@@ -97,12 +104,15 @@ class _HomeViewState extends State<HomeView> {
             ListTile(
               leading: const Icon(Icons.settings),
               title: const Text('Settings'),
-              onTap: () {},
+              onTap: () {
+                debugPrint('[UI] Settings tapped in drawer');
+              },
             ),
             ListTile(
               leading: const Icon(Icons.info_outline),
               title: const Text('About'),
               onTap: () {
+                debugPrint('[UI] About tapped in drawer');
                 Navigator.pop(context);
                 _showAboutDialog(context);
               },
@@ -119,6 +129,7 @@ class _HomeViewState extends State<HomeView> {
               leading: const Icon(Icons.logout),
               title: const Text('Logout'),
               onTap: () async {
+                debugPrint('[AUTH] User logging out from drawer');
                 await FirebaseAuth.instance.signOut();
                 Navigator.pop(context);
               },
@@ -133,14 +144,19 @@ class _HomeViewState extends State<HomeView> {
             child: Row(
               children: [
                 ElevatedButton.icon(
-                  onPressed: () =>
-                      Get.to(() => SectionsListView(widget.userId)),
+                  onPressed: () {
+                    debugPrint('[UI] Navigating to SectionsListView');
+                    Get.to(() => SectionsListView(widget.userId));
+                  },
                   icon: const Icon(Icons.list),
                   label: const Text('All Sections'),
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton.icon(
-                  onPressed: () => Get.toNamed('/hive-data-viewer'),
+                  onPressed: () {
+                    debugPrint('[UI] Navigating to HiveDataViewerPage');
+                    Get.toNamed('/hive-data-viewer');
+                  },
                   icon: const Icon(Icons.storage),
                   label: const Text('Data Viewer'),
                 ),
@@ -152,6 +168,8 @@ class _HomeViewState extends State<HomeView> {
               valueListenable: sectionController.listenable,
               builder: (context, Box<Section> box, _) {
                 final sections = sectionController.filteredSections;
+                debugPrint(
+                    '[UI] ValueListenableBuilder loaded ${sections.length} sections');
                 if (sections.isEmpty) {
                   return const Center(
                     child: Column(
@@ -190,6 +208,8 @@ class _HomeViewState extends State<HomeView> {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(16),
                         onTap: () {
+                          debugPrint(
+                              '[UI] Navigating to SectionDetailView for section: ${section.id}');
                           Get.to(() => SectionDetailView(
                               section: section, userId: widget.userId));
                         },

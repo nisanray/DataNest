@@ -17,25 +17,36 @@ class RecordController extends GetxController {
   void onInit() {
     super.onInit();
     recordBox = Hive.box<Record>('records');
+    debugPrint(
+        '[RECORD] RecordController initialized for section: $sectionId, user: $userId');
   }
 
   // Getter to filter records for this section and user
-  List<Record> get filteredRecords => recordBox.values
-      .where((r) => r.sectionId == sectionId && r.userId == userId)
-      .toList();
+  List<Record> get filteredRecords {
+    final records = recordBox.values
+        .where((r) => r.sectionId == sectionId && r.userId == userId)
+        .toList();
+    debugPrint(
+        '[RECORD] Loaded ${records.length} records from Hive for section: $sectionId, user: $userId');
+    return records;
+  }
 
   // Expose listenable for UI
   ValueListenable<Box<Record>> get listenable => recordBox.listenable();
 
   Future<void> uploadRecord(Record record) async {
+    debugPrint('[RECORD] Uploading record to Firestore: ${record.id}');
     await FirebaseFirestore.instance
         .collection('records')
         .doc(record.id)
         .set(record.toJson());
+    debugPrint('[RECORD] Uploaded record to Firestore: ${record.id}');
   }
 
   Future<void> deleteRecordFromCloud(String id) async {
+    debugPrint('[RECORD] Deleting record from Firestore: $id');
     await FirebaseFirestore.instance.collection('records').doc(id).delete();
+    debugPrint('[RECORD] Deleted record from Firestore: $id');
   }
 
   Future<void> fetchRecordsFromCloud() async {

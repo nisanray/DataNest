@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 class HiveDataViewer extends StatefulWidget {
   const HiveDataViewer({Key? key}) : super(key: key);
@@ -16,12 +17,14 @@ class _HiveDataViewerState extends State<HiveDataViewer> {
   bool loading = false;
 
   Future<void> loadBox() async {
+    debugPrint('[UI] Loading data for box: $selectedBox');
     setState(() => loading = true);
     final box = await Hive.openBox(selectedBox);
     setState(() {
       boxData = box.values.toList();
       loading = false;
     });
+    debugPrint('[UI] Loaded ${boxData.length} items from Hive');
   }
 
   String _prettyJson(dynamic obj) {
@@ -35,6 +38,7 @@ class _HiveDataViewerState extends State<HiveDataViewer> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('[UI] HiveDataViewer build');
     return AlertDialog(
       title: const Text('View Hive Data'),
       content: SizedBox(
@@ -52,6 +56,7 @@ class _HiveDataViewerState extends State<HiveDataViewer> {
                   .toList(),
               onChanged: (val) async {
                 if (val != null) {
+                  debugPrint('[UI] Selected box changed to: $val');
                   setState(() => selectedBox = val);
                   await loadBox();
                 }

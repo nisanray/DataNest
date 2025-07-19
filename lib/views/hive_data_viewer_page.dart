@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 // Removed unused GetX import
 
 class HiveDataViewerPage extends StatefulWidget {
@@ -20,6 +21,7 @@ class _HiveDataViewerPageState extends State<HiveDataViewerPage> {
   @override
   void initState() {
     super.initState();
+    debugPrint('[UI] HiveDataViewerPage initialized');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadBoxData(selectedBox);
     });
@@ -27,6 +29,7 @@ class _HiveDataViewerPageState extends State<HiveDataViewerPage> {
 
   Future<void> _loadBoxData(String boxName) async {
     setState(() => loading = true);
+    debugPrint('[UI] Loading data for box: $boxName');
     try {
       final box = await Hive.openBox(boxName);
       setState(() {
@@ -34,6 +37,8 @@ class _HiveDataViewerPageState extends State<HiveDataViewerPage> {
         selectedBox = boxName;
         loading = false;
       });
+      debugPrint(
+          '[UI] Loaded ${boxData.length} items from Hive for box: $boxName');
     } catch (e) {
       setState(() {
         boxData = [];
@@ -43,25 +48,35 @@ class _HiveDataViewerPageState extends State<HiveDataViewerPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading box: $e')),
       );
+      debugPrint('[UI] Error loading box: $boxName, Error: $e');
     }
   }
 
   void _clearBox() async {
+    debugPrint('[UI] Clearing box: $selectedBox');
     final box = await Hive.openBox(selectedBox);
     await box.clear();
     _loadBoxData(selectedBox);
+    debugPrint('[UI] Box cleared: $selectedBox');
   }
 
   List<dynamic> get filteredData {
-    if (searchQuery.isEmpty) return boxData;
-    return boxData
+    debugPrint('[UI] Filtering data with query: $searchQuery');
+    if (searchQuery.isEmpty) {
+      debugPrint('[UI] No search query, returning all data.');
+      return boxData;
+    }
+    final filtered = boxData
         .where((item) =>
             item.toString().toLowerCase().contains(searchQuery.toLowerCase()))
         .toList();
+    debugPrint('[UI] Filtered data length: ${filtered.length}');
+    return filtered;
   }
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('[UI] HiveDataViewerPage build');
     return Scaffold(
       appBar: AppBar(
         title: const Text('Hive Data Viewer'),
@@ -95,7 +110,10 @@ class _HiveDataViewerPageState extends State<HiveDataViewerPage> {
                             ))
                         .toList(),
                     onChanged: (val) {
-                      if (val != null) _loadBoxData(val);
+                      if (val != null) {
+                        debugPrint('[UI] Selected box changed to: $val');
+                        _loadBoxData(val);
+                      }
                     },
                     decoration: const InputDecoration(
                       labelText: 'Hive Box',
@@ -111,7 +129,10 @@ class _HiveDataViewerPageState extends State<HiveDataViewerPage> {
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.search),
                     ),
-                    onChanged: (val) => setState(() => searchQuery = val),
+                    onChanged: (val) {
+                      debugPrint('[UI] Search query changed to: $val');
+                      setState(() => searchQuery = val);
+                    },
                   ),
                 ),
               ],
@@ -121,16 +142,20 @@ class _HiveDataViewerPageState extends State<HiveDataViewerPage> {
             child: Builder(
               builder: (context) {
                 if (loading) {
+                  debugPrint('[UI] Loading indicator shown.');
                   // Show progress only for a short time, not continuously
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (filteredData.isEmpty) {
+                  debugPrint('[UI] No data found.');
                   return const Center(child: Text('No data found.'));
                 }
+                debugPrint('[UI] Displaying ${filteredData.length} items.');
                 return ListView.builder(
                   itemCount: filteredData.length,
                   itemBuilder: (context, index) {
                     final item = filteredData[index];
+                    debugPrint('[UI] Building item $index: $item');
                     return Card(
                       margin: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),

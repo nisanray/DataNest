@@ -11,6 +11,7 @@ import 'models/field_model.dart';
 import 'views/home_view.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'services/sync_service.dart';
+import 'package:flutter/foundation.dart';
 
 class SyncStatusController extends GetxController {
   final String userId;
@@ -83,19 +84,56 @@ class DataNestApp extends StatelessWidget {
   }
 }
 
-class AuthGate extends StatelessWidget {
+class AuthGate extends StatefulWidget {
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  bool _isSyncing = false;
+  bool _syncDone = false;
+  String? _userId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    FirebaseAuth.instance.authStateChanges().listen((user) async {
+      debugPrint('[AUTH] Auth state changed: ${user?.uid}');
+      if (user != null && _userId != user.uid) {
+        setState(() {
+          _isSyncing = true;
+          _syncDone = false;
+          _userId = user.uid;
+        });
+        debugPrint('[AUTH] User signed in: ${user.uid}');
+        Get.put(SyncStatusController(user.uid), permanent: true);
+        await SyncService(userId: user.uid).onUserLogin();
+        setState(() {
+          _isSyncing = false;
+          _syncDone = true;
+        });
+      } else if (user == null) {
+        debugPrint('[AUTH] User signed out');
+        setState(() {
+          _userId = null;
+          _syncDone = false;
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting || _isSyncing) {
           return const Scaffold(
               body: Center(child: CircularProgressIndicator()));
         }
-        if (snapshot.hasData && snapshot.data != null) {
-          // Register SyncStatusController globally for this user
-          Get.put(SyncStatusController(snapshot.data!.uid), permanent: true);
+        if (snapshot.hasData && snapshot.data != null && _syncDone) {
+          debugPrint(
+              '[NAV] Navigating to HomeView for user: ${snapshot.data!.uid}');
           return HomeView(userId: snapshot.data!.uid);
         }
         return SignInView();
@@ -119,17 +157,26 @@ class _SignInViewState extends State<SignInView> {
     setState(() => error = '');
     try {
       if (isLogin) {
+        debugPrint(
+            '[AUTH] Attempting sign in for: ${emailController.text.trim()}');
         await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: emailController.text.trim(),
           password: passwordController.text.trim(),
         );
+        debugPrint(
+            '[AUTH] Sign in successful for: ${emailController.text.trim()}');
       } else {
+        debugPrint(
+            '[AUTH] Attempting registration for: ${emailController.text.trim()}');
         await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: emailController.text.trim(),
           password: passwordController.text.trim(),
         );
+        debugPrint(
+            '[AUTH] Registration successful for: ${emailController.text.trim()}');
       }
     } catch (e) {
+      debugPrint('[AUTH] Auth error: ${e.toString()}');
       setState(() => error = e.toString());
     }
   }

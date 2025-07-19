@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../controllers/section_controller.dart';
 import '../models/section_model.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter/foundation.dart';
 
 final List<Map<String, dynamic>> sectionIcons = [
   {'label': 'Folder', 'icon': Icons.folder, 'value': 'folder'},
@@ -59,11 +60,13 @@ class _SectionCreateViewState extends State<SectionCreateView> {
   @override
   void initState() {
     super.initState();
+    debugPrint('[UI] SectionCreateView initialized');
     sectionController = Get.find<SectionController>(tag: widget.userId);
   }
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('[UI] SectionCreateView build');
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(
@@ -213,6 +216,8 @@ class _SectionCreateViewState extends State<SectionCreateView> {
                       elevation: 2,
                     ),
                     onPressed: () {
+                      debugPrint(
+                          '[UI] Creating new section with name: ${nameController.text.trim()}');
                       if (nameController.text.trim().isEmpty) {
                         Get.snackbar('Error', 'Section name is required',
                             snackPosition: SnackPosition.BOTTOM);
@@ -228,6 +233,7 @@ class _SectionCreateViewState extends State<SectionCreateView> {
                             : descriptionController.text.trim(),
                       );
                       sectionController.addSection(section);
+                      debugPrint('[UI] Navigating back after section creation');
                       Get.back();
                       Get.snackbar('Success', 'Section created',
                           snackPosition: SnackPosition.BOTTOM);

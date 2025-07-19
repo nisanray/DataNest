@@ -9,6 +9,7 @@ import '../controllers/record_controller.dart';
 import 'package:collection/collection.dart';
 import 'package:hive/hive.dart';
 import '../models/field_model.dart';
+import 'package:flutter/foundation.dart';
 
 class SettingsTab extends StatefulWidget {
   final Section section;
@@ -38,6 +39,7 @@ class _SettingsTabState extends State<SettingsTab> {
   @override
   void initState() {
     super.initState();
+    debugPrint('[UI] SettingsTab initialized');
     final tag = '${widget.section.id}_${widget.userId}';
     if (!Get.isRegistered<FieldController>(tag: tag)) {
       Get.put(
@@ -78,6 +80,7 @@ class _SettingsTabState extends State<SettingsTab> {
   }
 
   void _showEditSectionDialog() {
+    debugPrint('[UI] Showing edit section dialog');
     String editName = name;
     String? editIcon = icon;
     String? editColor = color;
@@ -136,6 +139,7 @@ class _SettingsTabState extends State<SettingsTab> {
           ),
           ElevatedButton(
             onPressed: () {
+              debugPrint('[UI] Saving section info changes');
               setState(() {
                 name = editName;
                 icon = editIcon;
@@ -161,6 +165,7 @@ class _SettingsTabState extends State<SettingsTab> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('[UI] SettingsTab build');
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -450,6 +455,8 @@ class _SettingsTabState extends State<SettingsTab> {
                                               message: 'Pick highlight color',
                                               child: GestureDetector(
                                                 onTap: () async {
+                                                  debugPrint(
+                                                      '[UI] Picking color for $fieldName');
                                                   final picked =
                                                       await showDialog<Color>(
                                                     context: context,
@@ -473,6 +480,8 @@ class _SettingsTabState extends State<SettingsTab> {
                                                     ),
                                                   );
                                                   if (picked != null) {
+                                                    debugPrint(
+                                                        '[UI] Color picked for $fieldName: ${picked.value}');
                                                     setState(() {
                                                       fieldColor[fieldName] =
                                                           '#${picked.value.toRadixString(16).padLeft(8, '0')}';
@@ -512,6 +521,8 @@ class _SettingsTabState extends State<SettingsTab> {
                                                         [])
                                                     .contains(fieldName),
                                                 onChanged: (val) {
+                                                  debugPrint(
+                                                      '[UI] Toggling visibility for $fieldName: $val');
                                                   setState(() {
                                                     final visibleFields = List<
                                                         String>.from(settings[
@@ -599,6 +610,7 @@ class _SettingsTabState extends State<SettingsTab> {
   }
 
   void _saveSettings() {
+    debugPrint('[UI] Saving settings');
     settings['sortBy'] = sortBy;
     settings['sortOrder'] = sortOrder;
     settings['fieldDisplay'] = fieldDisplay;
