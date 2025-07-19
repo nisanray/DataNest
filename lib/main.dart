@@ -1,4 +1,5 @@
 import 'package:datanest/firebase_options.dart';
+import 'views/hive_data_viewer_page.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -17,24 +18,33 @@ class SyncStatusController extends GetxController {
   var hasUnsynced = false.obs;
   late final SyncService syncService;
   late final Connectivity _connectivity;
-  // No need for a separate _connectivityStream variable
 
   SyncStatusController(this.userId) {
     syncService = SyncService(userId: userId);
     _connectivity = Connectivity();
     Connectivity().onConnectivityChanged.listen((result) async {
       if (result != ConnectivityResult.none) {
-        isSyncing.value = true;
-        await syncService.onConnectivityRestored();
-        isSyncing.value = false;
+        await refreshAllData();
       }
     });
   }
 
-  Future<void> syncNow() async {
+  // Centralized refresh function - syncs from Firebase to Hive
+  Future<void> refreshAllData() async {
     isSyncing.value = true;
-    await syncService.syncToFirebase();
-    isSyncing.value = false;
+    try {
+      await syncService.onConnectivityRestored();
+      // After sync, all UI will automatically update via ValueListenableBuilder
+      // No need to manually refresh controllers or UI
+    } catch (e) {
+      print('Error refreshing data: $e');
+    } finally {
+      isSyncing.value = false;
+    }
+  }
+
+  Future<void> syncNow() async {
+    await refreshAllData();
   }
 }
 
@@ -64,7 +74,11 @@ class DataNestApp extends StatelessWidget {
       theme: ThemeData.light(),
       darkTheme: ThemeData.dark(),
       themeMode: ThemeMode.system,
-      home: AuthGate(),
+      initialRoute: '/',
+      getPages: [
+        GetPage(name: '/', page: () => AuthGate()),
+        GetPage(name: '/hive-data-viewer', page: () => HiveDataViewerPage()),
+      ],
     );
   }
 }

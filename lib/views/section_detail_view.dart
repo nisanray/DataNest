@@ -8,8 +8,9 @@ import '../controllers/section_controller.dart';
 import 'package:get/get.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'settings_tab.dart';
+import '../controllers/record_controller.dart';
 
-class SectionDetailView extends StatelessWidget {
+class SectionDetailView extends StatefulWidget {
   final Section section;
   final String userId;
   const SectionDetailView(
@@ -17,9 +18,40 @@ class SectionDetailView extends StatelessWidget {
       : super(key: key);
 
   @override
+  State<SectionDetailView> createState() => _SectionDetailViewState();
+}
+
+class _SectionDetailViewState extends State<SectionDetailView> {
+  late SectionController sectionController;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Get.isRegistered<SectionController>(tag: widget.userId)) {
+      sectionController = Get.find<SectionController>(tag: widget.userId);
+    } else {
+      sectionController =
+          Get.put(SectionController(userId: widget.userId), tag: widget.userId);
+    }
+    // Register FieldController and RecordController for this section+user
+    final tag = '${widget.section.id}_${widget.userId}';
+    if (!Get.isRegistered<FieldController>(tag: tag)) {
+      Get.put(
+          FieldController(sectionId: widget.section.id, userId: widget.userId),
+          tag: tag);
+    }
+    if (!Get.isRegistered<RecordController>(tag: tag)) {
+      Get.put(
+          RecordController(sectionId: widget.section.id, userId: widget.userId),
+          tag: tag);
+    }
+    // RecordsTab and FieldsTab will use ValueListenableBuilder to automatically update
+  }
+
+  @override
   Widget build(BuildContext context) {
     final iconData = sectionIcons.firstWhere(
-      (icon) => icon['value'] == section.icon,
+      (icon) => icon['value'] == widget.section.icon,
       orElse: () => sectionIcons.first,
     );
     return DefaultTabController(
@@ -28,11 +60,12 @@ class SectionDetailView extends StatelessWidget {
         appBar: AppBar(
           iconTheme: const IconThemeData(color: Colors.white),
           title: Text(
-            section.name,
+            widget.section.name,
             style: TextStyle(color: Colors.white),
           ),
-          backgroundColor: section.color != null
-              ? Color(int.parse(section.color!.replaceFirst('#', '0xff')))
+          backgroundColor: widget.section.color != null
+              ? Color(
+                  int.parse(widget.section.color!.replaceFirst('#', '0xff')))
               : null,
           bottom: TabBar(
             labelColor: Colors.white,
@@ -56,11 +89,11 @@ class SectionDetailView extends StatelessWidget {
         body: TabBarView(
           children: [
             // Records Tab
-            RecordsTab(section: section, userId: userId),
+            RecordsTab(section: widget.section, userId: widget.userId),
             // Fields Tab
-            FieldsTab(section: section, userId: userId),
+            FieldsTab(section: widget.section, userId: widget.userId),
             // Settings Tab
-            SettingsTab(section: section, userId: userId),
+            SettingsTab(section: widget.section, userId: widget.userId),
           ],
         ),
       ),

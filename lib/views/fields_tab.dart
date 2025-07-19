@@ -3,55 +3,78 @@ import 'package:get/get.dart';
 import '../models/section_model.dart';
 import '../models/field_model.dart';
 import '../controllers/field_controller.dart';
+import 'package:flutter/foundation.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
-class FieldsTab extends StatelessWidget {
+class FieldsTab extends StatefulWidget {
   final Section section;
   final String userId;
   const FieldsTab({Key? key, required this.section, required this.userId})
       : super(key: key);
 
   @override
+  State<FieldsTab> createState() => _FieldsTabState();
+}
+
+class _FieldsTabState extends State<FieldsTab> {
+  late FieldController fieldController;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Get.isRegistered<FieldController>(
+        tag: '${widget.section.id}_${widget.userId}')) {
+      fieldController = Get.find<FieldController>(
+          tag: '${widget.section.id}_${widget.userId}');
+    } else {
+      fieldController = Get.put(
+          FieldController(sectionId: widget.section.id, userId: widget.userId),
+          tag: '${widget.section.id}_${widget.userId}');
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final FieldController fieldController = Get.put(
-        FieldController(sectionId: section.id, userId: userId),
-        tag: section.id);
     return Stack(
       children: [
-        Obx(() {
-          final fields = fieldController.fields;
-          if (fields.isEmpty) {
-            return const Center(
-                child: Text('No fields yet. Tap + to add one.'));
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: fields.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final field = fields[index];
-              return Card(
-                child: ListTile(
-                  title: Text(field.name),
-                  subtitle: Text('Type: ${field.type}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (field.requiredField)
-                        const Icon(Icons.star, color: Colors.red),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _confirmDeleteField(
-                            context, fieldController, field),
-                      ),
-                    ],
+        ValueListenableBuilder(
+          valueListenable: fieldController.listenable,
+          builder: (context, Box<Field> box, _) {
+            final fields = fieldController.filteredFields;
+            if (fields.isEmpty) {
+              return const Center(
+                  child: Text('No fields yet. Tap + to add one.'));
+            }
+            return ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: fields.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final field = fields[index];
+                return Card(
+                  child: ListTile(
+                    title: Text(field.name),
+                    subtitle: Text('Type: ${field.type}'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (field.requiredField)
+                          const Icon(Icons.star, color: Colors.red),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _confirmDeleteField(
+                              context, fieldController, field),
+                        ),
+                      ],
+                    ),
+                    onTap: () => _showAddFieldDialog(context, fieldController,
+                        editField: field),
                   ),
-                  onTap: () => _showAddFieldDialog(context, fieldController,
-                      editField: field),
-                ),
-              );
-            },
-          );
-        }),
+                );
+              },
+            );
+          },
+        ),
         Positioned(
           bottom: 24,
           right: 24,
@@ -96,7 +119,7 @@ class FieldsTab extends StatelessWidget {
         TextEditingController(text: editField?.formula ?? '');
     final TextEditingController conditionalVisibilityController =
         TextEditingController(text: editField?.conditionalVisibility ?? '');
-    int order = editField?.order ?? controller.fields.length;
+    int order = editField?.order ?? controller.filteredFields.length;
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -220,9 +243,9 @@ class FieldsTab extends StatelessWidget {
                       child: Slider(
                         value: order.toDouble(),
                         min: 0,
-                        max: (controller.fields.length).toDouble(),
-                        divisions: controller.fields.length > 0
-                            ? controller.fields.length
+                        max: (controller.filteredFields.length).toDouble(),
+                        divisions: controller.filteredFields.length > 0
+                            ? controller.filteredFields.length
                             : 1,
                         label: order.toString(),
                         onChanged: (val) => setState(() => order = val.toInt()),
@@ -311,9 +334,9 @@ class FieldsTab extends StatelessWidget {
                 } else {
                   // Edit logic: update Hive and observable list
                   controller.fieldBox.put(field.id, field);
-                  final idx =
-                      controller.fields.indexWhere((f) => f.id == field.id);
-                  if (idx != -1) controller.fields[idx] = field;
+                  final idx = controller.filteredFields
+                      .indexWhere((f) => f.id == field.id);
+                  if (idx != -1) controller.filteredFields[idx] = field;
                   Get.snackbar('Success', 'Field updated',
                       snackPosition: SnackPosition.BOTTOM);
                 }
@@ -337,7 +360,7 @@ class FieldsTab extends StatelessWidget {
       confirmTextColor: Colors.white,
       onConfirm: () {
         controller.fieldBox.delete(field.id);
-        controller.fields.removeWhere((f) => f.id == field.id);
+        controller.filteredFields.removeWhere((f) => f.id == field.id);
         Get.back();
         Get.snackbar('Deleted', 'Field deleted',
             snackPosition: SnackPosition.BOTTOM);

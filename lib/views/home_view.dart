@@ -16,6 +16,8 @@ import 'dart:convert';
 import 'hive_data_viewer.dart';
 import '../services/sync_service.dart';
 import '../main.dart'; // For SyncStatusController
+import 'package:flutter/foundation.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 class HomeView extends StatefulWidget {
   final String userId;
@@ -26,14 +28,16 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
-  late final SectionController sectionController =
-      Get.put(SectionController(userId: widget.userId), tag: widget.userId);
+  late SectionController sectionController;
 
   @override
   void initState() {
     super.initState();
+    sectionController =
+        Get.put(SectionController(userId: widget.userId), tag: widget.userId);
     // Sync user data from Firebase to Hive after login
     SyncService(userId: widget.userId).onUserLogin();
+    // sectionController.loadSections(); // Always reload from Hive
   }
 
   @override
@@ -44,154 +48,195 @@ class _HomeViewState extends State<HomeView> {
             style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         elevation: 2,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-            tooltip: 'Menu',
-          ),
-        ),
         actions: [
-          Obx(() {
-            final sync = Get.find<SyncStatusController>();
-            if (sync.isSyncing.value) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Row(
-                  children: const [
-                    SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    SizedBox(width: 4),
-                    Icon(Icons.cloud_sync, color: Colors.blue),
-                  ],
-                ),
-              );
-            } else {
-              return Icon(
-                Icons.cloud_sync,
-                color: Colors.green,
-                semanticLabel: 'Synced',
-              );
-            }
-          }),
           IconButton(
-            icon: const Icon(Icons.storage),
-            tooltip: 'View Hive Data',
-            onPressed: () => showDialog(
-              context: context,
-              builder: (context) => const HiveDataViewer(),
-            ),
+            icon: const Icon(Icons.sync),
+            tooltip: 'Sync',
+            onPressed: () {
+              final syncController = Get.find<SyncStatusController>();
+              syncController.syncNow();
+            },
           ),
         ],
       ),
       drawer: Drawer(
-        child: Obx(() {
-          final sections = sectionController.sections;
-          return ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              UserAccountsDrawerHeader(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.deepPurple, Colors.purpleAccent],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            UserAccountsDrawerHeader(
+              accountName: Text('User'),
+              accountEmail: Text('user@example.com'),
+              currentAccountPicture: const CircleAvatar(
+                backgroundColor: Colors.white,
+                child: Icon(Icons.person, size: 40, color: Colors.deepPurple),
+              ),
+              otherAccountsPictures: [
+                IconButton(
+                  icon: const Icon(Icons.settings, color: Colors.white),
+                  tooltip: 'Settings',
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
                 ),
-                accountName: const Text('Welcome!',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                accountEmail: Text(widget.userId),
-                currentAccountPicture: CircleAvatar(
-                  backgroundColor: Colors.white,
-                  child: Icon(Icons.person, color: Colors.deepPurple, size: 36),
-                ),
-                otherAccountsPictures: [
-                  IconButton(
-                    icon: const Icon(Icons.settings, color: Colors.white),
-                    tooltip: 'Settings',
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                  ),
-                ],
-              ),
-              ListTile(
-                leading: const Icon(Icons.dashboard),
-                title: const Text('Dashboard'),
-                onTap: () => Navigator.pop(context),
-              ),
-              ListTile(
-                leading: const Icon(Icons.folder_special),
-                title: const Text('Sections'),
-                trailing: CircleAvatar(
-                  radius: 12,
-                  backgroundColor: Colors.deepPurple.shade100,
-                  child: Text('${sections.length}',
-                      style: const TextStyle(
-                          fontSize: 12, color: Colors.deepPurple)),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  Get.to(() => SectionsListView(widget.userId));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.add),
-                title: const Text('New Section'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showCreateSectionModal(context);
-                },
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.settings),
-                title: const Text('Settings'),
-                onTap: () {},
-              ),
-              ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: const Text('About'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showAboutDialog(context);
-                },
-              ),
-              const Divider(),
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text('Quick Actions',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple.shade400)),
-              ),
-              ListTile(
-                leading: const Icon(Icons.refresh),
-                title: const Text('Refresh Sections'),
-                onTap: () {
-                  sectionController.refreshSections();
-                  Navigator.pop(context);
-                  Get.snackbar('Refreshed', 'Sections refreshed',
-                      snackPosition: SnackPosition.BOTTOM);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.logout),
-                title: const Text('Logout'),
-                onTap: () async {
-                  await FirebaseAuth.instance.signOut();
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          );
-        }),
+              ],
+            ),
+            ListTile(
+              leading: const Icon(Icons.dashboard),
+              title: const Text('Dashboard'),
+              onTap: () => Navigator.pop(context),
+            ),
+            ListTile(
+              leading: const Icon(Icons.add),
+              title: const Text('New Section'),
+              onTap: () {
+                Navigator.pop(context);
+                _showCreateSectionModal(context);
+              },
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.settings),
+              title: const Text('Settings'),
+              onTap: () {},
+            ),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('About'),
+              onTap: () {
+                Navigator.pop(context);
+                _showAboutDialog(context);
+              },
+            ),
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text('Quick Actions',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.deepPurple.shade400)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Logout'),
+              onTap: () async {
+                await FirebaseAuth.instance.signOut();
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
       ),
-      body: _buildSectionwiseRecords(context),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Row(
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () =>
+                      Get.to(() => SectionsListView(widget.userId)),
+                  icon: const Icon(Icons.list),
+                  label: const Text('All Sections'),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: () => Get.toNamed('/hive-data-viewer'),
+                  icon: const Icon(Icons.storage),
+                  label: const Text('Data Viewer'),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ValueListenableBuilder(
+              valueListenable: sectionController.listenable,
+              builder: (context, Box<Section> box, _) {
+                final sections = sectionController.filteredSections;
+                if (sections.isEmpty) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.folder_open, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          'No sections yet',
+                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Create your first section to get started',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 1.2,
+                  ),
+                  itemCount: sections.length,
+                  itemBuilder: (context, index) {
+                    final section = sections[index];
+                    return Card(
+                      elevation: 3,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          Get.to(() => SectionDetailView(
+                              section: section, userId: widget.userId));
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircleAvatar(
+                                radius: 30,
+                                backgroundColor: section.color != null
+                                    ? _parseColor(section.color!)
+                                    : Colors.deepPurple,
+                                child: Icon(_getSectionIcon(section.icon),
+                                    color: Colors.white, size: 30),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                section.name,
+                                style: const TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (section.description != null &&
+                                  section.description!.isNotEmpty)
+                                Text(
+                                  section.description!,
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Colors.grey),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateSectionModal(context),
         icon: const Icon(Icons.add),
@@ -262,7 +307,7 @@ class _HomeViewState extends State<HomeView> {
   }
 
   Widget _buildSectionwiseRecords(BuildContext context) {
-    final sections = sectionController.sections;
+    final sections = sectionController.filteredSections;
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: sections.length,
@@ -290,7 +335,7 @@ class _HomeViewState extends State<HomeView> {
             children: [
               // Show fields (items) of the section
               Obx(() {
-                final fields = fieldController.fields;
+                final fields = fieldController.filteredFields;
                 if (fields.isEmpty) {
                   return const Padding(
                     padding: EdgeInsets.all(8.0),
@@ -329,7 +374,7 @@ class _HomeViewState extends State<HomeView> {
               }),
               // Show records as before
               Obx(() {
-                final records = recordController.records;
+                final records = recordController.filteredRecords;
                 if (records.isEmpty) {
                   return const Padding(
                     padding: EdgeInsets.all(16.0),

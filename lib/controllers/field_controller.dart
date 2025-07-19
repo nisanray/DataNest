@@ -1,15 +1,15 @@
 import 'package:get/get.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../models/field_model.dart';
 import 'package:uuid/uuid.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/sync_service.dart';
+import 'package:flutter/foundation.dart';
 
 class FieldController extends GetxController {
   final String sectionId;
   final String userId;
   late Box<Field> fieldBox;
-  var fields = <Field>[].obs;
 
   // Supported field types
   static const List<Map<String, String>> fieldTypes = [
@@ -46,14 +46,15 @@ class FieldController extends GetxController {
   void onInit() {
     super.onInit();
     fieldBox = Hive.box<Field>('fields');
-    loadFields();
   }
 
-  void loadFields() {
-    fields.value = fieldBox.values
-        .where((f) => f.sectionId == sectionId && f.userId == userId)
-        .toList();
-  }
+  // Getter to filter fields for this section and user
+  List<Field> get filteredFields => fieldBox.values
+      .where((f) => f.sectionId == sectionId && f.userId == userId)
+      .toList();
+
+  // Expose listenable for UI
+  ValueListenable<Box<Field>> get listenable => fieldBox.listenable();
 
   Future<void> uploadField(Field field) async {
     await FirebaseFirestore.instance
@@ -76,7 +77,6 @@ class FieldController extends GetxController {
     for (final field in remoteFields) {
       await fieldBox.put(field.id, field);
     }
-    loadFields();
   }
 
   void addField(Field field) async {
@@ -100,7 +100,6 @@ class FieldController extends GetxController {
       userId: userId,
     );
     await fieldBox.put(userField.id, userField);
-    fields.add(userField);
     await uploadField(userField);
     await SyncService(userId: userId).onDataChanged();
   }
@@ -126,15 +125,12 @@ class FieldController extends GetxController {
       userId: userId,
     );
     await fieldBox.put(updated.id, userField);
-    int idx = fields.indexWhere((f) => f.id == updated.id);
-    if (idx != -1) fields[idx] = userField;
     await uploadField(userField);
     await SyncService(userId: userId).onDataChanged();
   }
 
   void deleteField(String id) async {
     await fieldBox.delete(id);
-    fields.removeWhere((f) => f.id == id);
     await deleteFieldFromCloud(id);
     await SyncService(userId: userId).onDataChanged();
   }

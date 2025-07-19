@@ -1,11 +1,11 @@
 import 'package:get/get.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../models/section_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/sync_service.dart';
+import 'package:flutter/foundation.dart';
 
 class SectionController extends GetxController {
-  var sections = <Section>[].obs;
   late Box<Section> sectionBox;
   final String userId;
   SectionController({required this.userId});
@@ -39,7 +39,6 @@ class SectionController extends GetxController {
       );
       await sectionBox.put(section.id, updated);
     }
-    loadSections();
   }
 
   /// Call this in onInit or periodically for auto-sync
@@ -47,14 +46,14 @@ class SectionController extends GetxController {
   void onInit() {
     super.onInit();
     sectionBox = Hive.box<Section>('sections');
-    loadSections();
-    syncUnsyncedSections(); // automatic sync for this user
   }
 
-  void loadSections() {
-    sections.value =
-        sectionBox.values.where((s) => s.userId == userId).toList();
-  }
+  // Getter to filter sections for this user
+  List<Section> get filteredSections =>
+      sectionBox.values.where((s) => s.userId == userId).toList();
+
+  // Expose listenable for UI
+  ValueListenable<Box<Section>> get listenable => sectionBox.listenable();
 
   Future<void> uploadSection(Section section) async {
     await FirebaseFirestore.instance
@@ -77,7 +76,6 @@ class SectionController extends GetxController {
     for (final section in remoteSections) {
       await sectionBox.put(section.id, section);
     }
-    loadSections();
   }
 
   void addSection(Section section) async {
@@ -93,7 +91,6 @@ class SectionController extends GetxController {
       userId: userId,
     );
     await sectionBox.put(userSection.id, userSection);
-    sections.add(userSection);
     await uploadSection(userSection);
     update();
     await SyncService(userId: userId).onDataChanged();
@@ -112,23 +109,20 @@ class SectionController extends GetxController {
       userId: userId,
     );
     await sectionBox.put(id, userSection);
-    int idx = sections.indexWhere((s) => s.id == id);
-    if (idx != -1) sections[idx] = userSection;
     await uploadSection(userSection);
     await SyncService(userId: userId).onDataChanged();
   }
 
   void deleteSection(String id) async {
     await sectionBox.delete(id);
-    sections.removeWhere((s) => s.id == id);
     await deleteSectionFromCloud(id);
     await SyncService(userId: userId).onDataChanged();
   }
 
   void refreshSections() async {
     final box = await Hive.openBox<Section>('sections');
-    sections.value = box.values.where((s) => s.userId == userId).toList();
-    update();
+    // The original code had sections.value = box.values.where((s) => s.userId == userId).toList();
+    // This line is removed as per the new_code, as the sections list is no longer .obs
   }
 
   // Placeholder for sync logic
@@ -141,15 +135,15 @@ class SectionController extends GetxController {
   }
 
   String exportSectionsAsJson() {
-    final sectionList = sections.map((s) => s.toJson()).toList();
+    final sectionList = filteredSections.map((s) => s.toJson()).toList();
     return sectionList.toString();
   }
 
   String exportSectionsAsCsv() {
-    if (sections.isEmpty) return '';
-    final headers = sections.first.toJson().keys.toList();
+    if (filteredSections.isEmpty) return '';
+    final headers = filteredSections.first.toJson().keys.toList();
     final rows =
-        sections.map((s) => headers.map((h) => s.toJson()[h]).toList());
+        filteredSections.map((s) => headers.map((h) => s.toJson()[h]).toList());
     final csv = StringBuffer();
     csv.writeln(headers.join(','));
     for (final row in rows) {

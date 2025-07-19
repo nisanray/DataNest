@@ -9,29 +9,45 @@ import 'dart:convert';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
-class RecordsTab extends StatelessWidget {
+class RecordsTab extends StatefulWidget {
   final Section section;
   final String userId;
   const RecordsTab({Key? key, required this.section, required this.userId})
       : super(key: key);
 
   @override
+  State<RecordsTab> createState() => _RecordsTabState();
+}
+
+class _RecordsTabState extends State<RecordsTab> {
+  late final RecordController recordController = Get.put(
+      RecordController(sectionId: widget.section.id, userId: widget.userId),
+      tag: '${widget.section.id}_${widget.userId}');
+  late final FieldController fieldController = Get.put(
+      FieldController(sectionId: widget.section.id, userId: widget.userId),
+      tag: '${widget.section.id}_${widget.userId}');
+  final TextEditingController searchController = TextEditingController();
+  final RxString searchQuery = ''.obs;
+
+  @override
+  void initState() {
+    super.initState();
+    // recordController.loadRecords(); // Always reload from Hive
+    // fieldController.loadFields(); // Always reload from Hive
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final RecordController recordController = Get.put(
-        RecordController(sectionId: section.id, userId: userId),
-        tag: '${section.id}_$userId');
-    final FieldController fieldController = Get.put(
-        FieldController(sectionId: section.id, userId: userId),
-        tag: '${section.id}_$userId');
-    final TextEditingController searchController = TextEditingController();
-    final RxString searchQuery = ''.obs;
-    // Extract section settings
-    final settings = section.settings ?? {};
-    final List<String> fieldOrder = List<String>.from(
-        settings['fieldOrder'] ?? fieldController.fields.map((f) => f.name));
+    final settings = widget.section.settings ?? {};
+    // All logic below only reads state, never updates it
+    final List<String> fieldOrder = List<String>.from(settings['fieldOrder'] ??
+        fieldController.filteredFields.map((f) => f.name));
     final List<String> visibleFields = List<String>.from(
-        settings['visibleFields'] ?? fieldController.fields.map((f) => f.name));
+        settings['visibleFields'] ??
+            fieldController.filteredFields.map((f) => f.name));
     final Map<String, dynamic> fieldDisplay =
         Map<String, dynamic>.from(settings['fieldDisplay'] ?? {});
     final Map<String, dynamic> fieldAlignment =
@@ -40,209 +56,208 @@ class RecordsTab extends StatelessWidget {
         Map<String, dynamic>.from(settings['fieldColor'] ?? {});
     final String? sortBy = settings['sortBy'];
     final String sortOrder = settings['sortOrder'] ?? 'asc';
-
-    return Stack(
-      children: [
-        Column(
+    return ValueListenableBuilder(
+      valueListenable: recordController.listenable,
+      builder: (context, Box<Record> box, _) {
+        var records = List<Record>.from(recordController.filteredRecords);
+        final fields = fieldController.filteredFields;
+        // Filter by search query
+        final query = searchQuery.value.trim().toLowerCase();
+        if (query.isNotEmpty) {
+          records = records.where((record) {
+            return record.data.values
+                .any((value) => value.toString().toLowerCase().contains(query));
+          }).toList();
+        }
+        // Sort records
+        if (sortBy != null) {
+          records.sort((a, b) {
+            final aVal = a.data[sortBy];
+            final bVal = b.data[sortBy];
+            if (aVal == null && bVal == null) return 0;
+            if (aVal == null) return sortOrder == 'asc' ? -1 : 1;
+            if (bVal == null) return sortOrder == 'asc' ? 1 : -1;
+            final comparison = aVal.toString().compareTo(bVal.toString());
+            return sortOrder == 'asc' ? comparison : -comparison;
+          });
+        }
+        return Stack(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                controller: searchController,
-                decoration: InputDecoration(
-                  labelText: 'Search records',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(),
+            Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: TextField(
+                    controller: searchController,
+                    decoration: InputDecoration(
+                      labelText: 'Search records',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) => searchQuery.value = val,
+                  ),
                 ),
-                onChanged: (val) => searchQuery.value = val,
-              ),
-            ),
-            Expanded(
-              child: Obx(() {
-                var records = List<Record>.from(recordController.records);
-                final fields = fieldController.fields;
-                // Filter by search query
-                final query = searchQuery.value.trim().toLowerCase();
-                if (query.isNotEmpty) {
-                  records = records.where((record) {
-                    return record.data.values.any((v) =>
-                        v != null &&
-                        v.toString().toLowerCase().contains(query));
-                  }).toList();
-                }
-                // Sort records if sortBy is set
-                if (sortBy != null && fields.any((f) => f.name == sortBy)) {
-                  records.sort((a, b) {
-                    final aValue = a.data[sortBy];
-                    final bValue = b.data[sortBy];
-                    if (aValue == null && bValue == null) return 0;
-                    if (aValue == null) return sortOrder == 'asc' ? -1 : 1;
-                    if (bValue == null) return sortOrder == 'asc' ? 1 : -1;
-                    if (aValue is Comparable && bValue is Comparable) {
-                      return sortOrder == 'asc'
-                          ? aValue.compareTo(bValue)
-                          : bValue.compareTo(aValue);
-                    }
-                    return 0;
-                  });
-                }
-                if (records.isEmpty) {
-                  return const Center(
-                      child: Text('No records yet. Tap + to add one.'));
-                }
-                return ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: records.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    final record = records[index];
-                    // Use the first visible field as the title
-                    String? titleValue;
-                    if (fieldOrder.isNotEmpty) {
-                      final firstVisible = fieldOrder.firstWhere(
-                        (f) =>
-                            visibleFields.contains(f) &&
-                            (fieldDisplay[f] ?? 'Normal') != 'Hidden',
-                        orElse: () => '',
-                      );
-                      if (firstVisible.isNotEmpty) {
-                        titleValue = record.data[firstVisible]?.toString();
-                      }
-                    }
-                    return Card(
-                      elevation: 3,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 12, horizontal: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                // Add record number
-                                Container(
-                                  margin: const EdgeInsets.only(right: 12),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blueGrey.shade50,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    '#${index + 1}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blueGrey,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: () => Get.dialog(RecordFormDialog(
-                                      sectionId: section.id,
-                                      userId: userId,
-                                      editRecord: record,
-                                    )),
-                                    child: Text(
-                                      titleValue ?? 'Record',
-                                      style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete,
-                                      color: Colors.red),
-                                  onPressed: () =>
-                                      recordController.deleteRecord(record.id),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            ...fieldOrder
-                                .where((fieldName) =>
-                                    visibleFields.contains(fieldName) &&
-                                    (fieldDisplay[fieldName] ?? 'Normal') !=
-                                        'Hidden')
-                                .map((fieldName) {
-                              final field = fields
-                                  .firstWhereOrNull((f) => f.name == fieldName);
-                              if (field == null) return const SizedBox.shrink();
-                              final value = record.data[field.name];
-                              final display =
-                                  fieldDisplay[field.name] ?? 'Normal';
-                              final align =
-                                  fieldAlignment[field.name] ?? 'Left';
-                              final colorHex =
-                                  fieldColor[field.name] ?? '#00000000';
-                              final color = _parseColor(colorHex);
-                              TextAlign textAlign = TextAlign.left;
-                              if (align == 'Center')
-                                textAlign = TextAlign.center;
-                              if (align == 'Right') textAlign = TextAlign.right;
-                              FontWeight fontWeight = FontWeight.normal;
-                              if (display == 'Bold')
-                                fontWeight = FontWeight.bold;
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 4),
-                                child: Row(
+                Expanded(
+                  child: records.isEmpty
+                      ? const Center(child: Text('No records yet.'))
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: records.length,
+                          itemBuilder: (context, index) {
+                            final record = records[index];
+                            String? titleValue;
+                            if (visibleFields.isNotEmpty) {
+                              final firstVisible = visibleFields.firstWhere(
+                                (f) =>
+                                    visibleFields.contains(f) &&
+                                    (fieldDisplay[f] ?? 'Normal') != 'Hidden',
+                                orElse: () => '',
+                              );
+                              if (firstVisible.isNotEmpty) {
+                                titleValue =
+                                    record.data[firstVisible]?.toString();
+                              }
+                            }
+                            return Card(
+                              elevation: 3,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16)),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 12, horizontal: 16),
+                                child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    _fieldIcon(field.type),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${field.name}: ',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w600),
-                                    ),
-                                    Expanded(
-                                      child: Text(
-                                        _formatFieldValue(field, value),
-                                        textAlign: textAlign,
-                                        style: TextStyle(
-                                          color: color.value == 0
-                                              ? Colors.black87
-                                              : color,
-                                          fontWeight: fontWeight,
+                                    Row(
+                                      children: [
+                                        // Add record number
+                                        Container(
+                                          margin:
+                                              const EdgeInsets.only(right: 12),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blueGrey.shade50,
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            '#${index + 1}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.blueGrey,
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: () =>
+                                                Get.dialog(RecordFormDialog(
+                                              sectionId: widget.section.id,
+                                              userId: widget.userId,
+                                              editRecord: record,
+                                            )),
+                                            child: Text(
+                                              titleValue ?? 'Record',
+                                              style: const TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete,
+                                              color: Colors.red),
+                                          onPressed: () => recordController
+                                              .deleteRecord(record.id),
+                                        ),
+                                      ],
                                     ),
+                                    const SizedBox(height: 8),
+                                    ...fieldOrder
+                                        .where((fieldName) =>
+                                            visibleFields.contains(fieldName) &&
+                                            (fieldDisplay[fieldName] ??
+                                                    'Normal') !=
+                                                'Hidden')
+                                        .map((fieldName) {
+                                      final field = fields.firstWhereOrNull(
+                                          (f) => f.name == fieldName);
+                                      if (field == null)
+                                        return const SizedBox.shrink();
+                                      final value = record.data[field.name];
+                                      final display =
+                                          fieldDisplay[field.name] ?? 'Normal';
+                                      if (display == 'Hidden')
+                                        return const SizedBox.shrink();
+                                      return Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 8),
+                                        child: Row(
+                                          children: [
+                                            _fieldIcon(field.type),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    field.name,
+                                                    style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        fontSize: 12,
+                                                        color: Colors.grey),
+                                                  ),
+                                                  Text(
+                                                    _formatFieldValue(
+                                                        field, value),
+                                                    style: const TextStyle(
+                                                        fontSize: 14),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
                                   ],
                                 ),
-                              );
-                            }).toList(),
-                          ],
+                              ),
+                            );
+                          },
                         ),
-                      ),
-                    );
-                  },
-                );
-              }),
+                ),
+              ],
+            ),
+            Positioned(
+              bottom: 24,
+              right: 24,
+              child: FloatingActionButton(
+                onPressed: () {
+                  // Ensure controllers are registered with the correct tag before opening dialog
+                  Get.put(
+                      FieldController(
+                          sectionId: widget.section.id, userId: widget.userId),
+                      tag: '${widget.section.id}_${widget.userId}');
+                  Get.put(
+                      RecordController(
+                          sectionId: widget.section.id, userId: widget.userId),
+                      tag: '${widget.section.id}_${widget.userId}');
+                  Get.dialog(
+                    RecordFormDialog(
+                        sectionId: widget.section.id, userId: widget.userId),
+                  );
+                },
+                child: const Icon(Icons.add),
+                tooltip: 'Add Record',
+              ),
             ),
           ],
-        ),
-        Positioned(
-          bottom: 24,
-          right: 24,
-          child: FloatingActionButton(
-            onPressed: () {
-              // Ensure controllers are registered with the correct tag before opening dialog
-              Get.put(FieldController(sectionId: section.id, userId: userId),
-                  tag: '${section.id}_$userId');
-              Get.put(RecordController(sectionId: section.id, userId: userId),
-                  tag: '${section.id}_$userId');
-              Get.dialog(
-                RecordFormDialog(sectionId: section.id, userId: userId),
-              );
-            },
-            child: const Icon(Icons.add),
-            tooltip: 'Add Record',
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -332,6 +347,7 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
   final Map<String, dynamic> formData = {};
   late final FieldController fieldController;
   late final RecordController recordController;
+  bool _formDataInitialized = false;
 
   @override
   void initState() {
@@ -340,7 +356,18 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
     final tag = '${widget.sectionId}_${widget.userId}';
     fieldController = Get.find<FieldController>(tag: tag);
     recordController = Get.find<RecordController>(tag: tag);
-    // Do not pre-populate formData here, do it reactively in build
+    // Populate formData with default values after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final fields = fieldController.filteredFields;
+      for (final field in fields) {
+        if (!formData.containsKey(field.name)) {
+          formData[field.name] = field.defaultValue;
+        }
+      }
+      setState(() {
+        _formDataInitialized = true;
+      });
+    });
   }
 
   @override
@@ -349,12 +376,10 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
       title: Text(widget.editRecord == null ? 'Add Record' : 'Edit Record'),
       content: SingleChildScrollView(
         child: Obx(() {
-          final fields = fieldController.fields;
-          // Populate formData with default values if not already set
-          for (final field in fields) {
-            if (!formData.containsKey(field.name)) {
-              formData[field.name] = field.defaultValue;
-            }
+          final fields = fieldController.filteredFields;
+          // Remove: for (final field in fields) { ... }
+          if (!_formDataInitialized) {
+            return const Center(child: CircularProgressIndicator());
           }
           if (fields.isEmpty) {
             return const Text('No fields defined for this section.');
@@ -613,7 +638,7 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
             final relatedController = Get.put(
                 RecordController(sectionId: targetSectionId, userId: userId),
                 tag: targetSectionId);
-            relatedRecords = relatedController.records;
+            relatedRecords = relatedController.filteredRecords;
           } catch (_) {}
         }
         return Padding(
@@ -708,7 +733,7 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
   }
 
   void _submit() {
-    final fields = fieldController.fields;
+    final fields = fieldController.filteredFields;
     // Validation enforcement
     for (final field in fields) {
       final value = formData[field.name];
@@ -720,7 +745,7 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
       }
       // Unique
       if (field.unique && value != null && value.toString().isNotEmpty) {
-        final isDuplicate = recordController.records.any((r) =>
+        final isDuplicate = recordController.filteredRecords.any((r) =>
             r.id != (widget.editRecord?.id ?? '') &&
             r.data[field.name] == value);
         if (isDuplicate) {

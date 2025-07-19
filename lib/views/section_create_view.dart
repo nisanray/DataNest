@@ -49,13 +49,18 @@ class SectionCreateView extends StatefulWidget {
 }
 
 class _SectionCreateViewState extends State<SectionCreateView> {
-  late final SectionController sectionController =
-      Get.find<SectionController>(tag: widget.userId);
+  late SectionController sectionController;
   final TextEditingController nameController = TextEditingController();
   final TextEditingController descriptionController = TextEditingController();
 
   String? selectedIcon = sectionIcons.first['value'];
   String? selectedColor = sectionColors.first['hex'];
+
+  @override
+  void initState() {
+    super.initState();
+    sectionController = Get.find<SectionController>(tag: widget.userId);
+  }
 
   @override
   Widget build(BuildContext context) {
