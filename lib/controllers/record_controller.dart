@@ -101,6 +101,34 @@ class RecordController extends GetxController {
     await fetchRecordsFromCloud();
   }
 
+  Future<void> syncUnsyncedRecords() async {
+    final unsynced = recordBox.values
+        .where((r) =>
+            r.sectionId == sectionId && r.userId == userId && r.synced == false)
+        .toList();
+    debugPrint(
+        '[RECORD] Syncing ${unsynced.length} unsynced records to Firestore for section: $sectionId, user: $userId');
+    for (final record in unsynced) {
+      await FirebaseFirestore.instance
+          .collection('records')
+          .doc(record.id)
+          .set(record.toJson());
+      // Mark as synced in Hive
+      final updated = Record(
+        id: record.id,
+        sectionId: record.sectionId,
+        data: record.data,
+        attachments: record.attachments,
+        relations: record.relations,
+        synced: true,
+        userId: record.userId,
+      );
+      await recordBox.put(record.id, updated);
+      debugPrint(
+          '[RECORD] Synced record to Firestore and updated in Hive: ${record.id}');
+    }
+  }
+
   String exportRecordsAsJson() {
     final recordList = filteredRecords.map((r) => r.toJson()).toList();
     return recordList.toString();

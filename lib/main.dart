@@ -93,11 +93,18 @@ class _AuthGateState extends State<AuthGate> {
   bool _isSyncing = false;
   bool _syncDone = false;
   String? _userId;
+  Stream<User?>? _authStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _authStream = FirebaseAuth.instance.authStateChanges();
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    FirebaseAuth.instance.authStateChanges().listen((user) async {
+    _authStream?.listen((user) async {
       debugPrint('[AUTH] Auth state changed: ${user?.uid}');
       if (user != null && _userId != user.uid) {
         setState(() {
@@ -125,7 +132,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+      stream: _authStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting || _isSyncing) {
           return const Scaffold(

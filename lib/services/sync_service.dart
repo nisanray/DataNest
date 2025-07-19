@@ -64,17 +64,8 @@ class SyncService {
         '[SYNC] Fetched ${snapshot.docs.length} sections from Firebase.');
     for (final doc in snapshot.docs) {
       final remote = Section.fromJson(doc.data());
-      final local = box.get(remote.id);
-      if (local == null) {
-        debugPrint('[SYNC] Adding new section to Hive: ${remote.id}');
-        await box.put(remote.id, remote);
-      } else if (local.synced == false) {
-        debugPrint('[SYNC] Overwriting unsynced section in Hive: ${remote.id}');
-        await box.put(remote.id, remote);
-      } else {
-        debugPrint(
-            '[SYNC] Skipping section (already synced in Hive): ${remote.id}');
-      }
+      await box.put(remote.id, remote);
+      debugPrint('[SYNC] Overwrote/added section in Hive: ${remote.id}');
     }
   }
 
@@ -114,17 +105,8 @@ class SyncService {
     debugPrint('[SYNC] Fetched ${snapshot.docs.length} fields from Firebase.');
     for (final doc in snapshot.docs) {
       final remote = Field.fromJson(doc.data());
-      final local = box.get(remote.id);
-      if (local == null) {
-        debugPrint('[SYNC] Adding new field to Hive: ${remote.id}');
-        await box.put(remote.id, remote);
-      } else if (local.synced == false) {
-        debugPrint('[SYNC] Overwriting unsynced field in Hive: ${remote.id}');
-        await box.put(remote.id, remote);
-      } else {
-        debugPrint(
-            '[SYNC] Skipping field (already synced in Hive): ${remote.id}');
-      }
+      await box.put(remote.id, remote);
+      debugPrint('[SYNC] Overwrote/added field in Hive: ${remote.id}');
     }
   }
 
@@ -172,17 +154,8 @@ class SyncService {
     debugPrint('[SYNC] Fetched ${snapshot.docs.length} records from Firebase.');
     for (final doc in snapshot.docs) {
       final remote = Record.fromJson(doc.data());
-      final local = box.get(remote.id);
-      if (local == null) {
-        debugPrint('[SYNC] Adding new record to Hive: ${remote.id}');
-        await box.put(remote.id, remote);
-      } else if (local.synced == false) {
-        debugPrint('[SYNC] Overwriting unsynced record in Hive: ${remote.id}');
-        await box.put(remote.id, remote);
-      } else {
-        debugPrint(
-            '[SYNC] Skipping record (already synced in Hive): ${remote.id}');
-      }
+      await box.put(remote.id, remote);
+      debugPrint('[SYNC] Overwrote/added record in Hive: ${remote.id}');
     }
   }
 
