@@ -379,47 +379,39 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
     return AlertDialog(
       title: Text(widget.editRecord == null ? 'Add Record' : 'Edit Record'),
       content: SingleChildScrollView(
-        child: Obx(() {
-          final fields = fieldController.filteredFields;
-          // Remove: for (final field in fields) { ... }
-          if (!_formDataInitialized) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (fields.isEmpty) {
-            return const Text('No fields defined for this section.');
-          }
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: fields
-                .where((field) {
-                  if (field.conditionalVisibility == null ||
-                      field.conditionalVisibility!.isEmpty) {
-                    return true;
-                  }
-                  try {
-                    // Very basic evaluator: supports 'formData["FieldName"] == "value"' and similar
-                    final condition = field.conditionalVisibility!;
-                    final regex = RegExp(
-                        r'formData\["([^\"]+)"\]\s*([!=]=)\s*"([^\"]*)"');
-                    final match = regex.firstMatch(condition);
-                    if (match != null) {
-                      final key = match.group(1)!;
-                      final op = match.group(2)!;
-                      final val = match.group(3)!;
-                      final current = formData[key]?.toString() ?? '';
-                      if (op == '==') return current == val;
-                      if (op == '!=') return current != val;
-                    }
-                    // If cannot parse, default to visible
-                    return true;
-                  } catch (_) {
-                    return true;
-                  }
-                })
-                .map((field) => _buildField(field))
-                .toList(),
-          );
-        }),
+        child: !_formDataInitialized
+            ? const Center(child: CircularProgressIndicator())
+            : (fieldController.filteredFields.isEmpty
+                ? const Text('No fields defined for this section.')
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: fieldController.filteredFields
+                        .where((field) {
+                          if (field.conditionalVisibility == null ||
+                              field.conditionalVisibility!.isEmpty) {
+                            return true;
+                          }
+                          try {
+                            final condition = field.conditionalVisibility!;
+                            final regex = RegExp(
+                                r'formData\["([^\"]+)"\]\s*([!=]=)\s*"([^\"]*)"');
+                            final match = regex.firstMatch(condition);
+                            if (match != null) {
+                              final key = match.group(1)!;
+                              final op = match.group(2)!;
+                              final val = match.group(3)!;
+                              final current = formData[key]?.toString() ?? '';
+                              if (op == '==') return current == val;
+                              if (op == '!=') return current != val;
+                            }
+                            return true;
+                          } catch (_) {
+                            return true;
+                          }
+                        })
+                        .map((field) => _buildField(field))
+                        .toList(),
+                  )),
       ),
       actions: [
         TextButton(

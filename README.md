@@ -87,6 +87,11 @@ DataNest is your personal, flexible database builder — think of it as a cross 
 - **Cloud Sync:**
   - Automatic sync with Firestore (with `synced` status tracking)
   - Works seamlessly across devices
+- **Robust Sync Logic:**
+  - On login, all user data is fetched from Firebase and always overwrites Hive, ensuring local data is always up-to-date.
+  - The UI always reads from Hive, guaranteeing instant access and correct display even after hot restart.
+  - Any new or edited data is saved to Hive with `synced: false` and is automatically uploaded to Firebase when online, then marked as `synced: true`.
+  - Extensive debugPrint instrumentation throughout the codebase for easy debugging and tracing of all sync and data actions.
 - **Conflict Handling:**
   - Last-write-wins for now (future: merge/resolve)
 - **Export/Import:** (Planned)
@@ -111,6 +116,7 @@ DataNest is your personal, flexible database builder — think of it as a cross 
 - **Controllers:** GetX manages all state, navigation, and logic
 - **Hive Boxes:** Store sections, fields, and records locally
 - **Firebase Sync:** Keeps your data safe and available everywhere
+- **Debugging:** Extensive debugPrint statements throughout the codebase make it easy to trace all user, sync, and data actions in the debug console.
 
 ---
 
@@ -159,6 +165,7 @@ DataNest is your personal, flexible database builder — think of it as a cross 
 - **Add Records:** Fill out dynamic form, validated by your fields
 - **Edit/Delete:** Manage sections, fields, and records with ease
 - **Sync:** Data is saved locally and synced to Firestore automatically
+- **Debug:** Use the debug console to trace all actions and sync events via debugPrint logs.
 
 ---
 

@@ -219,12 +219,12 @@ class _HomeViewState extends State<HomeView> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               CircleAvatar(
-                                radius: 30,
+                                radius: 22,
                                 backgroundColor: section.color != null
                                     ? _parseColor(section.color!)
                                     : Colors.deepPurple,
                                 child: Icon(_getSectionIcon(section.icon),
-                                    color: Colors.white, size: 30),
+                                    color: Colors.white, size: 25),
                               ),
                               const SizedBox(height: 12),
                               Text(
