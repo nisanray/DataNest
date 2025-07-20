@@ -27,8 +27,11 @@ class HomeView extends StatefulWidget {
   State<HomeView> createState() => _HomeViewState();
 }
 
-class _HomeViewState extends State<HomeView> {
+class _HomeViewState extends State<HomeView>
+    with SingleTickerProviderStateMixin {
   late SectionController sectionController;
+  late TabController _tabController;
+  String _recordSearchQuery = '';
 
   @override
   void initState() {
@@ -36,9 +39,14 @@ class _HomeViewState extends State<HomeView> {
     sectionController =
         Get.put(SectionController(userId: widget.userId), tag: widget.userId);
     debugPrint('[UI] HomeView initialized for user: ${widget.userId}');
-    // Sync user data from Firebase to Hive after login
     SyncService(userId: widget.userId).onUserLogin();
-    // sectionController.loadSections(); // Always reload from Hive
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -60,6 +68,13 @@ class _HomeViewState extends State<HomeView> {
             },
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(icon: Icon(Icons.dashboard), text: 'Sections'),
+            Tab(icon: Icon(Icons.view_list), text: 'Records'),
+          ],
+        ),
       ),
       drawer: Drawer(
         child: ListView(
@@ -137,123 +152,155 @@ class _HomeViewState extends State<HomeView> {
           ],
         ),
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Row(
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () {
-                    debugPrint('[UI] Navigating to SectionsListView');
-                    Get.to(() => SectionsListView(widget.userId));
-                  },
-                  icon: const Icon(Icons.list),
-                  label: const Text('All Sections'),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    debugPrint('[UI] Navigating to HiveDataViewerPage');
-                    Get.toNamed('/hive-data-viewer');
-                  },
-                  icon: const Icon(Icons.storage),
-                  label: const Text('Data Viewer'),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ValueListenableBuilder(
-              valueListenable: sectionController.listenable,
-              builder: (context, Box<Section> box, _) {
-                final sections = sectionController.filteredSections;
-                debugPrint(
-                    '[UI] ValueListenableBuilder loaded ${sections.length} sections');
-                if (sections.isEmpty) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.folder_open, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text(
-                          'No sections yet',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Create your first section to get started',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
+          // Sections Grid View (existing)
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        debugPrint('[UI] Navigating to SectionsListView');
+                        Get.to(() => SectionsListView(widget.userId));
+                      },
+                      icon: const Icon(Icons.list),
+                      label: const Text('All Sections'),
                     ),
-                  );
-                }
-                return GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.2,
-                  ),
-                  itemCount: sections.length,
-                  itemBuilder: (context, index) {
-                    final section = sections[index];
-                    return Card(
-                      elevation: 3,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () {
-                          debugPrint(
-                              '[UI] Navigating to SectionDetailView for section: ${section.id}');
-                          Get.to(() => SectionDetailView(
-                              section: section, userId: widget.userId));
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              CircleAvatar(
-                                radius: 22,
-                                backgroundColor: section.color != null
-                                    ? _parseColor(section.color!)
-                                    : Colors.deepPurple,
-                                child: Icon(_getSectionIcon(section.icon),
-                                    color: Colors.white, size: 25),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                section.name,
-                                style: const TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (section.description != null &&
-                                  section.description!.isNotEmpty)
-                                Text(
-                                  section.description!,
-                                  style: const TextStyle(
-                                      fontSize: 12, color: Colors.grey),
-                                  textAlign: TextAlign.center,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                            ],
-                          ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        debugPrint('[UI] Navigating to HiveDataViewerPage');
+                        Get.toNamed('/hive-data-viewer');
+                      },
+                      icon: const Icon(Icons.storage),
+                      label: const Text('Data Viewer'),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ValueListenableBuilder(
+                  valueListenable: sectionController.listenable,
+                  builder: (context, Box<Section> box, _) {
+                    final sections = sectionController.filteredSections;
+                    debugPrint(
+                        '[UI] ValueListenableBuilder loaded ${sections.length} sections');
+                    if (sections.isEmpty) {
+                      return const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.folder_open,
+                                size: 64, color: Colors.grey),
+                            SizedBox(height: 16),
+                            Text(
+                              'No sections yet',
+                              style:
+                                  TextStyle(fontSize: 18, color: Colors.grey),
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Create your first section to get started',
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ],
                         ),
+                      );
+                    }
+                    return GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.2,
                       ),
+                      itemCount: sections.length,
+                      itemBuilder: (context, index) {
+                        final section = sections[index];
+                        return Card(
+                          elevation: 3,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () {
+                              debugPrint(
+                                  '[UI] Navigating to SectionDetailView for section: ${section.id}');
+                              Get.to(() => SectionDetailView(
+                                  section: section, userId: widget.userId));
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 22,
+                                    backgroundColor: section.color != null
+                                        ? _parseColor(section.color!)
+                                        : Colors.deepPurple,
+                                    child: Icon(_getSectionIcon(section.icon),
+                                        color: Colors.white, size: 25),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    section.name,
+                                    style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold),
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (section.description != null &&
+                                      section.description!.isNotEmpty)
+                                    Text(
+                                      section.description!,
+                                      style: const TextStyle(
+                                          fontSize: 12, color: Colors.grey),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+            ],
+          ),
+          // Records Tab (advanced UX)
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Search records...',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onChanged: (val) =>
+                      setState(() => _recordSearchQuery = val.trim()),
+                ),
+              ),
+              Expanded(
+                child: _buildSectionwiseRecords(context,
+                    searchQuery: _recordSearchQuery),
+              ),
+            ],
           ),
         ],
       ),
@@ -326,7 +373,8 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
-  Widget _buildSectionwiseRecords(BuildContext context) {
+  Widget _buildSectionwiseRecords(BuildContext context,
+      {String searchQuery = ''}) {
     final sections = sectionController.filteredSections;
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -354,73 +402,89 @@ class _HomeViewState extends State<HomeView> {
             subtitle: Text(section.description ?? ''),
             children: [
               // Show fields (items) of the section
-              Obx(() {
-                final fields = fieldController.filteredFields;
-                if (fields.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text('No fields in this section.'),
-                  );
-                }
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0, vertical: 8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Fields:',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      ...fields
-                          .map((field) => Row(
-                                children: [
-                                  Icon(Icons.view_column,
-                                      size: 16, color: Colors.deepPurple),
-                                  const SizedBox(width: 6),
-                                  Text(field.name,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w500)),
-                                  const SizedBox(width: 8),
-                                  Text('(${field.type})',
-                                      style:
-                                          const TextStyle(color: Colors.grey)),
-                                ],
-                              ))
-                          .toList(),
-                      const Divider(),
-                    ],
-                  ),
-                );
-              }),
-              // Show records as before
-              Obx(() {
-                final records = recordController.filteredRecords;
-                if (records.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text('No records in this section.'),
-                  );
-                }
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: records.length,
-                  separatorBuilder: (_, __) => const Divider(),
-                  itemBuilder: (context, recIdx) {
-                    final record = records[recIdx];
-                    return ListTile(
-                      title: Text(record.data.keys.isNotEmpty
-                          ? record.data.values.first.toString()
-                          : 'Record'),
-                      subtitle: Text(record.data.entries
-                          .map((e) => '${e.key}: ${e.value}')
-                          .join(', ')),
-                      onTap: () => Get.to(() => SectionDetailView(
-                          section: section, userId: widget.userId)),
+              ValueListenableBuilder(
+                valueListenable: fieldController.listenable,
+                builder: (context, Box<Field> box, _) {
+                  final fields = fieldController.filteredFields;
+                  if (fields.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text('No fields in this section.'),
                     );
-                  },
-                );
-              }),
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Fields:',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        ...fields
+                            .map((field) => Row(
+                                  children: [
+                                    Icon(Icons.view_column,
+                                        size: 16, color: Colors.deepPurple),
+                                    const SizedBox(width: 6),
+                                    Text(field.name,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w500)),
+                                    const SizedBox(width: 8),
+                                    Text('(${field.type})',
+                                        style: const TextStyle(
+                                            color: Colors.grey)),
+                                  ],
+                                ))
+                            .toList(),
+                        const Divider(),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              // Show records as before
+              ValueListenableBuilder(
+                valueListenable: recordController.listenable,
+                builder: (context, Box<Record> box, _) {
+                  final records = recordController.filteredRecords;
+                  final filteredRecords = searchQuery.isEmpty
+                      ? records
+                      : records
+                          .where((record) => record.data.entries.any((e) =>
+                              e.key
+                                  .toLowerCase()
+                                  .contains(searchQuery.toLowerCase()) ||
+                              (e.value?.toString().toLowerCase() ?? '')
+                                  .contains(searchQuery.toLowerCase())))
+                          .toList();
+                  if (filteredRecords.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Text('No records in this section.'),
+                    );
+                  }
+                  return ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: filteredRecords.length,
+                    separatorBuilder: (_, __) => const Divider(),
+                    itemBuilder: (context, recIdx) {
+                      final record = filteredRecords[recIdx];
+                      return ListTile(
+                        title: Text(record.data.keys.isNotEmpty
+                            ? record.data.values.first.toString()
+                            : 'Record'),
+                        subtitle: Text(record.data.entries
+                            .map((e) => '${e.key}: ${e.value}')
+                            .join(', ')),
+                        onTap: () => Get.to(() => SectionDetailView(
+                            section: section, userId: widget.userId)),
+                      );
+                    },
+                  );
+                },
+              ),
             ],
           ),
         );
