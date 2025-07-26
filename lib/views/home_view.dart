@@ -163,6 +163,15 @@ class _HomeViewState extends State<HomeView>
                 setState(() => _selectedNavIndex = 1);
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.task),
+              title: const Text('Tasks'),
+              onTap: () {
+                debugPrint('[UI] Tasks tapped in drawer');
+                Navigator.pop(context);
+                Get.toNamed('/tasks');
+              },
+            ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.settings),

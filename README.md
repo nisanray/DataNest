@@ -169,6 +169,7 @@ DataNest is your personal, flexible database builder — think of it as a cross 
 
 ---
 
+
 ## 🔮 Future Enhancements / Roadmap
 
 - **Templates:** Pre-built section/field templates for common use cases
@@ -177,6 +178,7 @@ DataNest is your personal, flexible database builder — think of it as a cross 
 - **Version History:** Track changes and restore previous versions
 - **AI Suggestions:** Smart field/section recommendations
 - **Reminders & Notifications:** For time/date fields
+- **Task Creation:** Create tasks with optional subtasks and optional reminders
 - **Charts & Analytics:** Visualize numeric data
 - **QR/Barcode Integration:** Scan and lookup records
 - **Mobile Widgets:** Quick data entry from home screen

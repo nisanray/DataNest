@@ -24,13 +24,15 @@ class SectionAdapter extends TypeAdapter<Section> {
       description: fields[4] as String?,
       order: fields[5] as int?,
       synced: fields[6] as bool,
+      settings: (fields[7] as Map?)?.cast<String, dynamic>(),
+      userId: fields[8] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Section obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -44,7 +46,11 @@ class SectionAdapter extends TypeAdapter<Section> {
       ..writeByte(5)
       ..write(obj.order)
       ..writeByte(6)
-      ..write(obj.synced);
+      ..write(obj.synced)
+      ..writeByte(7)
+      ..write(obj.settings)
+      ..writeByte(8)
+      ..write(obj.userId);
   }
 
   @override

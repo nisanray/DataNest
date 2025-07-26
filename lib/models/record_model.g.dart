@@ -23,13 +23,14 @@ class RecordAdapter extends TypeAdapter<Record> {
       attachments: (fields[3] as List?)?.cast<String>(),
       relations: (fields[4] as Map?)?.cast<String, dynamic>(),
       synced: fields[5] as bool,
+      userId: fields[6] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Record obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -41,7 +42,9 @@ class RecordAdapter extends TypeAdapter<Record> {
       ..writeByte(4)
       ..write(obj.relations)
       ..writeByte(5)
-      ..write(obj.synced);
+      ..write(obj.synced)
+      ..writeByte(6)
+      ..write(obj.userId);
   }
 
   @override

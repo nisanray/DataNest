@@ -33,13 +33,14 @@ class FieldAdapter extends TypeAdapter<Field> {
       conditionalVisibility: fields[13] as String?,
       order: fields[14] as int?,
       synced: fields[15] as bool,
+      userId: fields[16] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Field obj) {
     writer
-      ..writeByte(16)
+      ..writeByte(17)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -71,7 +72,9 @@ class FieldAdapter extends TypeAdapter<Field> {
       ..writeByte(14)
       ..write(obj.order)
       ..writeByte(15)
-      ..write(obj.synced);
+      ..write(obj.synced)
+      ..writeByte(16)
+      ..write(obj.userId);
   }
 
   @override

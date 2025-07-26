@@ -5,6 +5,7 @@ import '../models/field_model.dart';
 import '../models/record_model.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import '../models/task_model.dart';
 
 class SyncService {
   final String userId;
@@ -21,6 +22,7 @@ class SyncService {
     await _syncSectionsFromFirebase();
     await _syncFieldsFromFirebase();
     await _syncRecordsFromFirebase();
+    await _syncTasksFromFirebase();
     debugPrint('[SYNC] syncFromFirebase completed for user: $userId');
   }
 
@@ -29,6 +31,95 @@ class SyncService {
     await _syncUnsyncedSectionsToFirebase();
     await _syncUnsyncedFieldsToFirebase();
     await _syncUnsyncedRecordsToFirebase();
+    await _syncUnsyncedTasksToFirebase();
+  }
+
+  // --- Task Sync ---
+  Future<void> _syncTasksFromFirebase() async {
+    final box = await Hive.openBox<Task>('tasks');
+    debugPrint('[SYNC] Fetching tasks from Firebase for user: $userId');
+    final snapshot = await FirebaseFirestore.instance
+        .collection('tasks')
+        .where('userId', isEqualTo: userId)
+        .get();
+    debugPrint('[SYNC] Fetched \\${snapshot.docs.length} tasks from Firebase.');
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      final subtasks = (data['subtasks'] as List?)
+              ?.map((s) => SubTask(
+                    id: s['id'],
+                    title: s['title'],
+                    completed: s['completed'] ?? false,
+                    reminder: s['reminder'] != null
+                        ? DateTime.tryParse(s['reminder'])
+                        : null,
+                    dueDate: s['dueDate'] != null
+                        ? DateTime.tryParse(s['dueDate'])
+                        : null,
+                    synced: true,
+                  ))
+              .toList() ??
+          [];
+      final remote = Task(
+        id: doc.id,
+        title: data['title'] ?? '',
+        description: data['description'],
+        reminder: data['reminder'] != null
+            ? DateTime.tryParse(data['reminder'])
+            : null,
+        dueDate:
+            data['dueDate'] != null ? DateTime.tryParse(data['dueDate']) : null,
+        subtasks: subtasks,
+        synced: true,
+      );
+      await box.put(remote.id, remote);
+      debugPrint('[SYNC] Overwrote/added task in Hive: \\${remote.id}');
+    }
+  }
+
+  Future<void> _syncUnsyncedTasksToFirebase() async {
+    final box = await Hive.openBox<Task>('tasks');
+    final unsynced = box.values.where((t) => t.synced == false).toList();
+    for (final task in unsynced) {
+      await FirebaseFirestore.instance.collection('tasks').doc(task.id).set({
+        'userId': userId,
+        'title': task.title,
+        'description': task.description,
+        'reminder': task.reminder?.toIso8601String(),
+        'dueDate': task.dueDate?.toIso8601String(),
+        'subtasks': task.subtasks
+            .map((s) => {
+                  'id': s.id,
+                  'title': s.title,
+                  'completed': s.completed,
+                  'reminder': s.reminder?.toIso8601String(),
+                  'dueDate': s.dueDate?.toIso8601String(),
+                })
+            .toList(),
+      });
+      // Mark all subtasks as synced
+      final updatedSubtasks = task.subtasks
+          .map((s) => SubTask(
+                id: s.id,
+                title: s.title,
+                completed: s.completed,
+                reminder: s.reminder,
+                dueDate: s.dueDate,
+                synced: true,
+              ))
+          .toList();
+      final updated = Task(
+        id: task.id,
+        title: task.title,
+        description: task.description,
+        reminder: task.reminder,
+        dueDate: task.dueDate,
+        subtasks: updatedSubtasks,
+        synced: true,
+      );
+      await box.put(task.id, updated);
+      debugPrint('[SYNC] Synced task to Firebase: ${task.id}');
+    }
   }
 
   /// Call this after login

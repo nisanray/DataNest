@@ -98,18 +98,47 @@
 
 ## 🚀 Future Features & Detailed Plans
 
-### 1. 📝 Tasks with Reminders & Subtasks
-- **Task Model:**
-  - Fields: id, title, description, dueDate, reminder, completed, parentTaskId (for subtasks), userId, synced.
-- **Subtasks:**
-  - Each task can have subtasks (tasks with a parentTaskId).
-  - UI: Expand/collapse subtasks under parent tasks.
-- **Reminders:**
-  - Use local notifications to remind users at the specified time.
-  - UI: Set reminder when creating/editing a task.
-- **Sync:**
-  - Store tasks in Hive and sync with Firestore, just like sections/records.
-  - Reminders are scheduled locally on the device.
+
+### 1. 📝 Tasks with Reminders, Subtasks, and Time Limits (**To Implement**)
+- **By Default Section for Task Managing:**
+  - User can create tasks, each with optional subtasks.
+  - Each task and subtask can have an optional reminder.
+  - Each task and subtask can have an optional time limit.
+  - UI: Create/edit tasks and subtasks, set reminders and time limits, expand/collapse subtasks.
+  - Reminders: Use local notifications for reminders and due dates.
+  - Sync: Store tasks in Hive and sync with Firestore, similar to sections/records. Reminders are scheduled locally.
+  - **Status:** Not yet implemented.
+
+---
+
+## ✅ Currently Implemented Features (Summary)
+
+- Offline-first data storage (Hive)
+- Cloud sync with Firestore
+- Dynamic data modeling (sections, fields)
+- Dynamic forms & record management
+- Modern, responsive UI/UX (Material Design, dark mode)
+- Debugging & observability (debugPrint logs)
+- Section/field/record CRUD
+- Automatic and manual sync
+- Field types: text, number, date, etc.
+- Section/field/record reordering and editing
+
+## 🚧 Features To Implement (Roadmap)
+
+- Tasks with reminders, subtasks, and time limits (see above)
+- Collaboration & sharing (multi-user, real-time, permissions)
+- Advanced search & filtering
+- Calendar & timeline views
+- Data export/import (JSON, CSV)
+- Custom field types & plugins
+- Notifications & reminders (in-app, push)
+- Security & access control (advanced auth, roles)
+- Mobile/Desktop/Web parity
+- Analytics & reporting (charts, dashboards)
+- Templates, AI suggestions, widgets, QR/barcode, API integrations
+
+---
 
 ### 2. 👥 Collaboration & Sharing
 - Invite other users to shared sections or tasks.
