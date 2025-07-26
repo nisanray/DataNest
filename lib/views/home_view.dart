@@ -4,7 +4,6 @@ import '../controllers/section_controller.dart';
 import '../models/section_model.dart';
 import 'section_detail_view.dart';
 import 'section_create_view.dart';
-import 'section_create_view.dart' show sectionIcons;
 import 'sections_list_view.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../controllers/record_controller.dart';
@@ -18,6 +17,7 @@ import '../services/sync_service.dart';
 import '../main.dart'; // For SyncStatusController
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'records_tab.dart' show RecordFormDialog;
 
 class HomeView extends StatefulWidget {
   final String userId;
@@ -32,6 +32,7 @@ class _HomeViewState extends State<HomeView>
   late SectionController sectionController;
   late TabController _tabController;
   String _recordSearchQuery = '';
+  int _selectedNavIndex = 0;
 
   @override
   void initState() {
@@ -49,8 +50,36 @@ class _HomeViewState extends State<HomeView>
     super.dispose();
   }
 
+  void _onNavItemTapped(int index) {
+    setState(() {
+      _selectedNavIndex = index;
+    });
+  }
+
+  Widget _buildProfileMenu() {
+    return PopupMenuButton<String>(
+      icon: const CircleAvatar(child: Icon(Icons.person)),
+      onSelected: (value) async {
+        if (value == 'logout') {
+          debugPrint('[AUTH] User logging out from profile menu');
+          await FirebaseAuth.instance.signOut();
+        } else if (value == 'settings') {
+          // Navigate to settings (future)
+        } else if (value == 'about') {
+          _showAboutDialog(context);
+        }
+      },
+      itemBuilder: (context) => [
+        const PopupMenuItem(value: 'settings', child: Text('Settings')),
+        const PopupMenuItem(value: 'about', child: Text('About')),
+        const PopupMenuItem(value: 'logout', child: Text('Logout')),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width > 700;
     return Scaffold(
       appBar: AppBar(
         title: const Text('DataNest',
@@ -58,23 +87,20 @@ class _HomeViewState extends State<HomeView>
         centerTitle: true,
         elevation: 2,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.sync),
-            tooltip: 'Sync',
-            onPressed: () {
-              debugPrint('[UI] Manual sync triggered from HomeView');
-              final syncController = Get.find<SyncStatusController>();
-              syncController.syncNow();
-            },
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: IconButton(
+              icon: const Icon(Icons.sync),
+              tooltip: 'Sync',
+              onPressed: () {
+                debugPrint('[UI] Manual sync triggered from HomeView');
+                final syncController = Get.find<SyncStatusController>();
+                syncController.syncNow();
+              },
+            ),
           ),
+          // _buildProfileMenu(),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.dashboard), text: 'Sections'),
-            Tab(icon: Icon(Icons.view_list), text: 'Records'),
-          ],
-        ),
       ),
       drawer: Drawer(
         child: ListView(
@@ -94,6 +120,7 @@ class _HomeViewState extends State<HomeView>
                   onPressed: () {
                     debugPrint('[UI] Settings icon tapped in drawer');
                     Navigator.pop(context);
+                    setState(() => _selectedNavIndex = 3);
                   },
                 ),
               ],
@@ -101,26 +128,50 @@ class _HomeViewState extends State<HomeView>
             ListTile(
               leading: const Icon(Icons.dashboard),
               title: const Text('Dashboard'),
+              selected: _selectedNavIndex == 0,
               onTap: () {
                 debugPrint('[UI] Dashboard tapped in drawer');
                 Navigator.pop(context);
+                setState(() => _selectedNavIndex = 0);
               },
             ),
             ListTile(
-              leading: const Icon(Icons.add),
-              title: const Text('New Section'),
+              leading: const Icon(Icons.list),
+              title: const Text('All Sections'),
               onTap: () {
-                debugPrint('[UI] New Section tapped in drawer');
+                debugPrint('[UI] All Sections tapped in drawer');
                 Navigator.pop(context);
-                _showCreateSectionModal(context);
+                Get.to(() => SectionsListView(widget.userId));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.storage),
+              title: const Text('Data Viewer'),
+              onTap: () {
+                debugPrint('[UI] Data Viewer tapped in drawer');
+                Navigator.pop(context);
+                Get.toNamed('/hive-data-viewer');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.view_list),
+              title: const Text('Records'),
+              selected: _selectedNavIndex == 1,
+              onTap: () {
+                debugPrint('[UI] Records tapped in drawer');
+                Navigator.pop(context);
+                setState(() => _selectedNavIndex = 1);
               },
             ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.settings),
               title: const Text('Settings'),
+              selected: _selectedNavIndex == 3,
               onTap: () {
                 debugPrint('[UI] Settings tapped in drawer');
+                Navigator.pop(context);
+                setState(() => _selectedNavIndex = 3);
               },
             ),
             ListTile(
@@ -152,165 +203,200 @@ class _HomeViewState extends State<HomeView>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          // Sections Grid View (existing)
-          Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Row(
+      body: _buildMainContent(context, true),
+      floatingActionButton: _selectedNavIndex == 0
+          ? FloatingActionButton.extended(
+              onPressed: () => _showCreateSectionModal(context),
+              icon: const Icon(Icons.add),
+              label: const Text('New Section'),
+              tooltip: 'Add Section',
+            )
+          : null,
+      // Remove NavigationRail and BottomNavigationBar, Drawer is now main nav
+    );
+  }
+
+  Widget _buildMainContent(BuildContext context, bool isWide) {
+    switch (_selectedNavIndex) {
+      case 0:
+        return _buildSectionsTab(context);
+      case 1:
+        return _buildRecordsTab(context);
+      case 2:
+        return _buildDataViewerTab(context);
+      case 3:
+        return _buildSettingsTab(context);
+      case 4:
+        _showAboutDialog(context);
+        return const SizedBox.shrink();
+      default:
+        return _buildSectionsTab(context);
+    }
+  }
+
+  Widget _buildSectionsTab(BuildContext context) {
+    // Advanced mobile UX: show a list of sections as ExpansionTiles, each showing its records
+    final sections = sectionController.filteredSections;
+    return sections.isEmpty
+        ? const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.folder_open, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text('No sections yet',
+                    style: TextStyle(fontSize: 18, color: Colors.grey)),
+                SizedBox(height: 8),
+                Text('Create your first section to get started',
+                    style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          )
+        : ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: sections.length,
+            itemBuilder: (context, index) {
+              final section = sections[index];
+              final recordController = Get.put(
+                RecordController(sectionId: section.id, userId: widget.userId),
+                tag: '${section.id}_${widget.userId}',
+              );
+              final fieldController = Get.put(
+                FieldController(sectionId: section.id, userId: widget.userId),
+                tag: '${section.id}_${widget.userId}',
+              );
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                elevation: 3,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+                child: ExpansionTile(
+                  leading: CircleAvatar(
+                    backgroundColor: section.color != null
+                        ? _parseColor(section.color!)
+                        : Colors.deepPurple,
+                    child: Icon(_getSectionIcon(section.icon),
+                        color: Colors.white),
+                  ),
+                  title: Text(section.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: section.description != null &&
+                          section.description!.isNotEmpty
+                      ? Text(section.description!,
+                          maxLines: 2, overflow: TextOverflow.ellipsis)
+                      : null,
                   children: [
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        debugPrint('[UI] Navigating to SectionsListView');
-                        Get.to(() => SectionsListView(widget.userId));
+                    ValueListenableBuilder(
+                      valueListenable: recordController.listenable,
+                      builder: (context, Box<Record> box, _) {
+                        final records = recordController.filteredRecords;
+                        if (records.isEmpty) {
+                          return const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text('No records in this section.'),
+                          );
+                        }
+                        final fields = fieldController.filteredFields;
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: records.length,
+                          itemBuilder: (context, recIdx) {
+                            final record = records[recIdx];
+                            return Card(
+                              margin: const EdgeInsets.symmetric(
+                                  vertical: 6, horizontal: 12),
+                              child: ListTile(
+                                title: Text(
+                                  fields.isNotEmpty
+                                      ? (record.data[fields.first.name]
+                                              ?.toString() ??
+                                          'Record')
+                                      : 'Record',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                subtitle: fields.length > 1
+                                    ? Text(fields
+                                        .skip(1)
+                                        .map((f) =>
+                                            record.data[f.name]?.toString() ??
+                                            '')
+                                        .where((s) => s.isNotEmpty)
+                                        .join(', '))
+                                    : null,
+                                onTap: () => Get.dialog(RecordFormDialog(
+                                  sectionId: section.id,
+                                  userId: widget.userId,
+                                  editRecord: record,
+                                )),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.delete,
+                                      color: Colors.red),
+                                  onPressed: () =>
+                                      recordController.deleteRecord(record.id),
+                                ),
+                              ),
+                            );
+                          },
+                        );
                       },
-                      icon: const Icon(Icons.list),
-                      label: const Text('All Sections'),
                     ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        debugPrint('[UI] Navigating to HiveDataViewerPage');
-                        Get.toNamed('/hive-data-viewer');
-                      },
-                      icon: const Icon(Icons.storage),
-                      label: const Text('Data Viewer'),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 16, bottom: 12),
+                        child: FloatingActionButton.small(
+                          heroTag: 'add_record_${section.id}',
+                          onPressed: () {
+                            Get.dialog(RecordFormDialog(
+                              sectionId: section.id,
+                              userId: widget.userId,
+                            ));
+                          },
+                          child: const Icon(Icons.add),
+                          tooltip: 'Add Record',
+                        ),
+                      ),
                     ),
                   ],
                 ),
-              ),
-              Expanded(
-                child: ValueListenableBuilder(
-                  valueListenable: sectionController.listenable,
-                  builder: (context, Box<Section> box, _) {
-                    final sections = sectionController.filteredSections;
-                    debugPrint(
-                        '[UI] ValueListenableBuilder loaded ${sections.length} sections');
-                    if (sections.isEmpty) {
-                      return const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.folder_open,
-                                size: 64, color: Colors.grey),
-                            SizedBox(height: 16),
-                            Text(
-                              'No sections yet',
-                              style:
-                                  TextStyle(fontSize: 18, color: Colors.grey),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              'Create your first section to get started',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-                    return GridView.builder(
-                      padding: const EdgeInsets.all(16),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 1.2,
-                      ),
-                      itemCount: sections.length,
-                      itemBuilder: (context, index) {
-                        final section = sections[index];
-                        return Card(
-                          elevation: 3,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16)),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () {
-                              debugPrint(
-                                  '[UI] Navigating to SectionDetailView for section: ${section.id}');
-                              Get.to(() => SectionDetailView(
-                                  section: section, userId: widget.userId));
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  CircleAvatar(
-                                    radius: 22,
-                                    backgroundColor: section.color != null
-                                        ? _parseColor(section.color!)
-                                        : Colors.deepPurple,
-                                    child: Icon(_getSectionIcon(section.icon),
-                                        color: Colors.white, size: 25),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    section.name,
-                                    style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold),
-                                    textAlign: TextAlign.center,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (section.description != null &&
-                                      section.description!.isNotEmpty)
-                                    Text(
-                                      section.description!,
-                                      style: const TextStyle(
-                                          fontSize: 12, color: Colors.grey),
-                                      textAlign: TextAlign.center,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
+              );
+            },
+          );
+  }
+
+  Widget _buildRecordsTab(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Search records...',
+              prefixIcon: Icon(Icons.search),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onChanged: (val) => setState(() => _recordSearchQuery = val.trim()),
           ),
-          // Records Tab (advanced UX)
-          Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search records...',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onChanged: (val) =>
-                      setState(() => _recordSearchQuery = val.trim()),
-                ),
-              ),
-              Expanded(
-                child: _buildSectionwiseRecords(context,
-                    searchQuery: _recordSearchQuery),
-              ),
-            ],
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreateSectionModal(context),
-        icon: const Icon(Icons.add),
-        label: const Text('New Section'),
-        tooltip: 'Add Section',
-      ),
+        ),
+        Expanded(
+          child: _buildSectionwiseRecords(context,
+              searchQuery: _recordSearchQuery),
+        ),
+      ],
     );
+  }
+
+  Widget _buildDataViewerTab(BuildContext context) {
+    // Navigate to HiveDataViewerPage or embed if desired
+    return HiveDataViewer();
+  }
+
+  Widget _buildSettingsTab(BuildContext context) {
+    // Placeholder for settings
+    return const Center(child: Text('Settings (coming soon)'));
   }
 
   void _showCreateSectionModal(BuildContext context) {
@@ -373,6 +459,59 @@ class _HomeViewState extends State<HomeView>
     );
   }
 
+  Widget _fieldIcon(String type) {
+    switch (type) {
+      case 'date':
+      case 'datetime':
+        return const Icon(Icons.event, size: 18, color: Colors.blueGrey);
+      case 'number':
+      case 'currency':
+        return const Icon(Icons.numbers, size: 18, color: Colors.teal);
+      case 'checkbox':
+      case 'switch':
+      case 'toggle':
+        return const Icon(Icons.check_box, size: 18, color: Colors.green);
+      case 'dropdown':
+      case 'multi_select':
+      case 'radio':
+        return const Icon(Icons.list, size: 18, color: Colors.deepPurple);
+      case 'file':
+        return const Icon(Icons.attach_file, size: 18, color: Colors.orange);
+      case 'image':
+        return const Icon(Icons.image, size: 18, color: Colors.pink);
+      case 'color':
+        return const Icon(Icons.color_lens, size: 18, color: Colors.amber);
+      case 'rating':
+        return const Icon(Icons.star, size: 18, color: Colors.amber);
+      case 'password':
+        return const Icon(Icons.lock, size: 18, color: Colors.grey);
+      default:
+        return const Icon(Icons.text_fields, size: 18, color: Colors.grey);
+    }
+  }
+
+  String _formatFieldValue(Field field, dynamic value) {
+    if (value == null) return '-';
+    switch (field.type) {
+      case 'checkbox':
+      case 'switch':
+      case 'toggle':
+        return value == true ? 'Yes' : 'No';
+      case 'multi_select':
+        if (value is List) return value.join(', ');
+        return value.toString();
+      case 'color':
+        return value.toString();
+      case 'rating':
+        return value.toString();
+      case 'date':
+      case 'datetime':
+        return value.toString().replaceFirst('T', ' ').split('.').first;
+      default:
+        return value.toString();
+    }
+  }
+
   Widget _buildSectionwiseRecords(BuildContext context,
       {String searchQuery = ''}) {
     final sections = sectionController.filteredSections;
@@ -387,6 +526,17 @@ class _HomeViewState extends State<HomeView>
         final fieldController = Get.put(
             FieldController(sectionId: section.id, userId: widget.userId),
             tag: '${section.id}_${widget.userId}');
+        final settings = section.settings ?? {};
+        final List<String> fieldOrder = List<String>.from(
+            settings['fieldOrder'] ??
+                fieldController.filteredFields.map((f) => f.name));
+        final List<String> visibleFields = List<String>.from(
+            settings['visibleFields'] ??
+                fieldController.filteredFields.map((f) => f.name));
+        final Map<String, dynamic> fieldDisplay =
+            Map<String, dynamic>.from(settings['fieldDisplay'] ?? {});
+        final String? sortBy = settings['sortBy'];
+        final String sortOrder = settings['sortOrder'] ?? 'asc';
         return Card(
           margin: const EdgeInsets.only(bottom: 20),
           child: ExpansionTile(
@@ -401,87 +551,189 @@ class _HomeViewState extends State<HomeView>
             ),
             subtitle: Text(section.description ?? ''),
             children: [
-              // Show fields (items) of the section
-              ValueListenableBuilder(
-                valueListenable: fieldController.listenable,
-                builder: (context, Box<Field> box, _) {
-                  final fields = fieldController.filteredFields;
-                  if (fields.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Text('No fields in this section.'),
-                    );
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0, vertical: 8.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Fields:',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 4),
-                        ...fields
-                            .map((field) => Row(
-                                  children: [
-                                    Icon(Icons.view_column,
-                                        size: 16, color: Colors.deepPurple),
-                                    const SizedBox(width: 6),
-                                    Text(field.name,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w500)),
-                                    const SizedBox(width: 8),
-                                    Text('(${field.type})',
-                                        style: const TextStyle(
-                                            color: Colors.grey)),
-                                  ],
-                                ))
-                            .toList(),
-                        const Divider(),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              // Show records as before
               ValueListenableBuilder(
                 valueListenable: recordController.listenable,
                 builder: (context, Box<Record> box, _) {
-                  final records = recordController.filteredRecords;
-                  final filteredRecords = searchQuery.isEmpty
-                      ? records
-                      : records
-                          .where((record) => record.data.entries.any((e) =>
-                              e.key
-                                  .toLowerCase()
-                                  .contains(searchQuery.toLowerCase()) ||
-                              (e.value?.toString().toLowerCase() ?? '')
-                                  .contains(searchQuery.toLowerCase())))
-                          .toList();
-                  if (filteredRecords.isEmpty) {
+                  var records =
+                      List<Record>.from(recordController.filteredRecords);
+                  // Filter by search query
+                  final query = searchQuery.trim().toLowerCase();
+                  if (query.isNotEmpty) {
+                    records = records.where((record) {
+                      return record.data.values.any((value) =>
+                          value.toString().toLowerCase().contains(query));
+                    }).toList();
+                  }
+                  // Sort records
+                  if (sortBy != null) {
+                    records.sort((a, b) {
+                      final aVal = a.data[sortBy];
+                      final bVal = b.data[sortBy];
+                      if (aVal == null && bVal == null) return 0;
+                      if (aVal == null) return sortOrder == 'asc' ? -1 : 1;
+                      if (bVal == null) return sortOrder == 'asc' ? 1 : -1;
+                      final comparison =
+                          aVal.toString().compareTo(bVal.toString());
+                      return sortOrder == 'asc' ? comparison : -comparison;
+                    });
+                  }
+                  if (records.isEmpty) {
                     return const Padding(
                       padding: EdgeInsets.all(16.0),
                       child: Text('No records in this section.'),
                     );
                   }
-                  return ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: filteredRecords.length,
-                    separatorBuilder: (_, __) => const Divider(),
-                    itemBuilder: (context, recIdx) {
-                      final record = filteredRecords[recIdx];
-                      return ListTile(
-                        title: Text(record.data.keys.isNotEmpty
-                            ? record.data.values.first.toString()
-                            : 'Record'),
-                        subtitle: Text(record.data.entries
-                            .map((e) => '${e.key}: ${e.value}')
-                            .join(', ')),
-                        onTap: () => Get.to(() => SectionDetailView(
-                            section: section, userId: widget.userId)),
-                      );
-                    },
+                  final fields = fieldController.filteredFields;
+                  return Column(
+                    children: [
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.only(bottom: 8),
+                        itemCount: records.length,
+                        itemBuilder: (context, recIdx) {
+                          final record = records[recIdx];
+                          String? titleValue;
+                          if (visibleFields.isNotEmpty) {
+                            final firstVisible = visibleFields.firstWhere(
+                              (f) =>
+                                  visibleFields.contains(f) &&
+                                  (fieldDisplay[f] ?? 'Normal') != 'Hidden',
+                              orElse: () => '',
+                            );
+                            if (firstVisible.isNotEmpty) {
+                              titleValue =
+                                  record.data[firstVisible]?.toString();
+                            }
+                          }
+                          return Card(
+                            elevation: 3,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16)),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12, horizontal: 16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        margin:
+                                            const EdgeInsets.only(right: 12),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blueGrey.shade50,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          '#${recIdx + 1}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.blueGrey,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () =>
+                                              Get.dialog(RecordFormDialog(
+                                            sectionId: section.id,
+                                            userId: widget.userId,
+                                            editRecord: record,
+                                          )),
+                                          child: Text(
+                                            titleValue ?? 'Record',
+                                            style: const TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete,
+                                            color: Colors.red),
+                                        onPressed: () => recordController
+                                            .deleteRecord(record.id),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  ...fieldOrder
+                                      .where((fieldName) =>
+                                          visibleFields.contains(fieldName) &&
+                                          (fieldDisplay[fieldName] ??
+                                                  'Normal') !=
+                                              'Hidden')
+                                      .map((fieldName) {
+                                    final field = fields.firstWhereOrNull(
+                                        (f) => f.name == fieldName);
+                                    if (field == null)
+                                      return const SizedBox.shrink();
+                                    final value = record.data[field.name];
+                                    final display =
+                                        fieldDisplay[field.name] ?? 'Normal';
+                                    if (display == 'Hidden')
+                                      return const SizedBox.shrink();
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: Row(
+                                        children: [
+                                          _fieldIcon(field.type),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  field.name,
+                                                  style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      fontSize: 12,
+                                                      color: Colors.grey),
+                                                ),
+                                                Text(
+                                                  _formatFieldValue(
+                                                      field, value),
+                                                  style: const TextStyle(
+                                                      fontSize: 14),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                              top: 8, right: 8, bottom: 8),
+                          child: FloatingActionButton.small(
+                            heroTag: 'add_record_${section.id}',
+                            onPressed: () {
+                              Get.dialog(RecordFormDialog(
+                                sectionId: section.id,
+                                userId: widget.userId,
+                              ));
+                            },
+                            child: const Icon(Icons.add),
+                            tooltip: 'Add Record',
+                          ),
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),

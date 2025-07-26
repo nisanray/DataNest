@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
+import '../models/section_model.dart';
+import '../models/record_model.dart';
+import '../models/field_model.dart';
 // Removed unused GetX import
 
 class HiveDataViewerPage extends StatefulWidget {
@@ -31,9 +35,22 @@ class _HiveDataViewerPageState extends State<HiveDataViewerPage> {
     setState(() => loading = true);
     debugPrint('[UI] Loading data for box: $boxName');
     try {
-      final box = await Hive.openBox(boxName);
+      List<dynamic> data;
+      switch (boxName) {
+        case 'sections':
+          data = Hive.box<Section>(boxName).values.toList();
+          break;
+        case 'records':
+          data = Hive.box<Record>(boxName).values.toList();
+          break;
+        case 'fields':
+          data = Hive.box<Field>(boxName).values.toList();
+          break;
+        default:
+          data = Hive.box(boxName).values.toList();
+      }
       setState(() {
-        boxData = box.values.toList();
+        boxData = data;
         selectedBox = boxName;
         loading = false;
       });
@@ -54,8 +71,19 @@ class _HiveDataViewerPageState extends State<HiveDataViewerPage> {
 
   void _clearBox() async {
     debugPrint('[UI] Clearing box: $selectedBox');
-    final box = await Hive.openBox(selectedBox);
-    await box.clear();
+    switch (selectedBox) {
+      case 'sections':
+        await Hive.box<Section>(selectedBox).clear();
+        break;
+      case 'records':
+        await Hive.box<Record>(selectedBox).clear();
+        break;
+      case 'fields':
+        await Hive.box<Field>(selectedBox).clear();
+        break;
+      default:
+        await Hive.box(selectedBox).clear();
+    }
     _loadBoxData(selectedBox);
     debugPrint('[UI] Box cleared: $selectedBox');
   }
@@ -77,6 +105,17 @@ class _HiveDataViewerPageState extends State<HiveDataViewerPage> {
   @override
   Widget build(BuildContext context) {
     debugPrint('[UI] HiveDataViewerPage build');
+    String prettyJson(dynamic obj) {
+      try {
+        if (obj is Section || obj is Record || obj is Field) {
+          return JsonEncoder.withIndent('  ').convert(obj.toJson());
+        }
+        return JsonEncoder.withIndent('  ').convert(obj);
+      } catch (_) {
+        return obj?.toString() ?? '';
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Hive Data Viewer'),
@@ -170,7 +209,7 @@ class _HiveDataViewerPageState extends State<HiveDataViewerPage> {
                             style:
                                 const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: SelectableText(
-                          item.toString(),
+                          prettyJson(item),
                           style: const TextStyle(
                               fontFamily: 'monospace', fontSize: 14),
                         ),
@@ -179,7 +218,7 @@ class _HiveDataViewerPageState extends State<HiveDataViewerPage> {
                           tooltip: 'Copy',
                           onPressed: () {
                             Clipboard.setData(
-                                ClipboardData(text: item.toString()));
+                                ClipboardData(text: prettyJson(item)));
                             ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Copied!')));
                           },
