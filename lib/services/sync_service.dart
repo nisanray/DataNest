@@ -8,6 +8,13 @@ import 'package:flutter/foundation.dart';
 import '../models/task_model.dart';
 
 class SyncService {
+  /// Background sync: upload all unsynced items from Hive to Firebase
+  Future<void> backgroundSync() async {
+    debugPrint('[SYNC] backgroundSync started for user: $userId');
+    await syncToFirebase();
+    debugPrint('[SYNC] backgroundSync completed for user: $userId');
+  }
+
   final String userId;
   SyncService({required this.userId});
 
@@ -32,6 +39,24 @@ class SyncService {
     await _syncUnsyncedFieldsToFirebase();
     await _syncUnsyncedRecordsToFirebase();
     await _syncUnsyncedTasksToFirebase();
+  }
+
+  Future<void> onUserSignUp() async {
+    debugPrint('[SYNC] onUserSignUp called for user: $userId');
+    await clearAllHiveBoxes();
+    debugPrint('[SYNC] onUserSignUp completed for user: $userId');
+  }
+
+  Future<void> onAppLaunchLoggedIn() async {
+    debugPrint('[SYNC] onAppLaunchLoggedIn called for user: $userId');
+    debugPrint('[SYNC] onAppLaunchLoggedIn completed for user: $userId');
+  }
+
+  Future<void> clearAllHiveBoxes() async {
+    await (await Hive.openBox<Section>('sections')).clear();
+    await (await Hive.openBox<Field>('fields')).clear();
+    await (await Hive.openBox<Record>('records')).clear();
+    await (await Hive.openBox<Task>('tasks')).clear();
   }
 
   // --- Task Sync ---
@@ -81,7 +106,12 @@ class SyncService {
     final box = await Hive.openBox<Task>('tasks');
     final unsynced = box.values.where((t) => t.synced == false).toList();
     for (final task in unsynced) {
-      await FirebaseFirestore.instance.collection('tasks').doc(task.id).set({
+      String docId = task.id;
+      bool needsDocId = docId.startsWith('local_');
+      DocumentReference ref = needsDocId
+          ? FirebaseFirestore.instance.collection('tasks').doc()
+          : FirebaseFirestore.instance.collection('tasks').doc(docId);
+      await ref.set({
         'userId': userId,
         'title': task.title,
         'description': task.description,
@@ -97,6 +127,7 @@ class SyncService {
                 })
             .toList(),
       });
+      String newDocId = ref.id;
       // Mark all subtasks as synced
       final updatedSubtasks = task.subtasks
           .map((s) => SubTask(
@@ -109,7 +140,7 @@ class SyncService {
               ))
           .toList();
       final updated = Task(
-        id: task.id,
+        id: newDocId,
         title: task.title,
         description: task.description,
         reminder: task.reminder,
@@ -117,8 +148,9 @@ class SyncService {
         subtasks: updatedSubtasks,
         synced: true,
       );
-      await box.put(task.id, updated);
-      debugPrint('[SYNC] Synced task to Firebase: ${task.id}');
+      if (needsDocId) await box.delete(task.id);
+      await box.put(newDocId, updated);
+      debugPrint('[SYNC] Synced task to Firebase: $newDocId');
     }
   }
 
@@ -166,12 +198,15 @@ class SyncService {
         .where((s) => s.userId == userId && s.synced == false)
         .toList();
     for (final section in unsynced) {
-      await FirebaseFirestore.instance
-          .collection('sections')
-          .doc(section.id)
-          .set(section.toJson());
+      String docId = section.id;
+      bool needsDocId = docId.startsWith('local_');
+      DocumentReference ref = needsDocId
+          ? FirebaseFirestore.instance.collection('sections').doc()
+          : FirebaseFirestore.instance.collection('sections').doc(docId);
+      await ref.set(section.toJson());
+      String newDocId = ref.id;
       final updated = Section(
-        id: section.id,
+        id: newDocId,
         name: section.name,
         icon: section.icon,
         color: section.color,
@@ -181,7 +216,8 @@ class SyncService {
         settings: section.settings,
         userId: section.userId,
       );
-      await box.put(section.id, updated);
+      if (needsDocId) await box.delete(section.id);
+      await box.put(newDocId, updated);
     }
   }
 
@@ -207,12 +243,15 @@ class SyncService {
         .where((f) => f.userId == userId && f.synced == false)
         .toList();
     for (final field in unsynced) {
-      await FirebaseFirestore.instance
-          .collection('fields')
-          .doc(field.id)
-          .set(field.toJson());
+      String docId = field.id;
+      bool needsDocId = docId.startsWith('local_');
+      DocumentReference ref = needsDocId
+          ? FirebaseFirestore.instance.collection('fields').doc()
+          : FirebaseFirestore.instance.collection('fields').doc(docId);
+      await ref.set(field.toJson());
+      String newDocId = ref.id;
       final updated = Field(
-        id: field.id,
+        id: newDocId,
         sectionId: field.sectionId,
         name: field.name,
         type: field.type,
@@ -230,7 +269,8 @@ class SyncService {
         synced: true,
         userId: field.userId,
       );
-      await box.put(field.id, updated);
+      if (needsDocId) await box.delete(field.id);
+      await box.put(newDocId, updated);
     }
   }
 
@@ -256,12 +296,15 @@ class SyncService {
         .where((r) => r.userId == userId && r.synced == false)
         .toList();
     for (final record in unsynced) {
-      await FirebaseFirestore.instance
-          .collection('records')
-          .doc(record.id)
-          .set(record.toJson());
+      String docId = record.id;
+      bool needsDocId = docId.startsWith('local_');
+      DocumentReference ref = needsDocId
+          ? FirebaseFirestore.instance.collection('records').doc()
+          : FirebaseFirestore.instance.collection('records').doc(docId);
+      await ref.set(record.toJson());
+      String newDocId = ref.id;
       final updated = Record(
-        id: record.id,
+        id: newDocId,
         sectionId: record.sectionId,
         data: record.data,
         attachments: record.attachments,
@@ -269,7 +312,8 @@ class SyncService {
         synced: true,
         userId: record.userId,
       );
-      await box.put(record.id, updated);
+      if (needsDocId) await box.delete(record.id);
+      await box.put(newDocId, updated);
     }
   }
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 class AppConstants {
+  /// Interval for background sync in minutes
+  static const int syncIntervalMinutes = 15;
   static const String appLogo = 'assets/logo/logo.png';
   // DataNest Modern, Solid, Eye-catching Color Palette
   // --- Main Backgrounds ---

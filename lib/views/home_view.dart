@@ -12,6 +12,8 @@ import '../controllers/field_controller.dart';
 import '../models/field_model.dart';
 import 'package:hive/hive.dart';
 import 'dart:convert';
+import '../app_constants.dart';
+import 'dart:async';
 import 'hive_data_viewer.dart';
 import '../services/sync_service.dart';
 import '../main.dart'; // For SyncStatusController
@@ -33,6 +35,7 @@ class _HomeViewState extends State<HomeView>
   late TabController _tabController;
   String _recordSearchQuery = '';
   int _selectedNavIndex = 0;
+  Timer? _periodicSyncTimer;
 
   @override
   void initState() {
@@ -40,12 +43,27 @@ class _HomeViewState extends State<HomeView>
     sectionController =
         Get.put(SectionController(userId: widget.userId), tag: widget.userId);
     debugPrint('[UI] HomeView initialized for user: ${widget.userId}');
-    SyncService(userId: widget.userId).onUserLogin();
+    // Only start background sync after entering home
+    Future.microtask(() async {
+      await SyncService(userId: widget.userId).backgroundSync();
+    });
     _tabController = TabController(length: 2, vsync: this);
+    // Start periodic sync every AppConstants.syncIntervalMinutes
+    _periodicSyncTimer = Timer.periodic(
+        Duration(minutes: AppConstants.syncIntervalMinutes), (timer) async {
+      debugPrint('[SYNC] Periodic background sync triggered');
+      try {
+        final syncController = Get.find<SyncStatusController>();
+        await syncController.syncNow();
+      } catch (e) {
+        debugPrint('[SYNC] Error during periodic sync: $e');
+      }
+    });
   }
 
   @override
   void dispose() {
+    _periodicSyncTimer?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -80,6 +98,7 @@ class _HomeViewState extends State<HomeView>
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width > 700;
+    final syncController = Get.find<SyncStatusController>();
     return Scaffold(
       appBar: AppBar(
         title: const Text('DataNest',
@@ -87,18 +106,23 @@ class _HomeViewState extends State<HomeView>
         centerTitle: true,
         elevation: 2,
         actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: IconButton(
-              icon: const Icon(Icons.sync),
-              tooltip: 'Sync',
-              onPressed: () {
-                debugPrint('[UI] Manual sync triggered from HomeView');
-                final syncController = Get.find<SyncStatusController>();
-                syncController.syncNow();
-              },
-            ),
-          ),
+          Obx(() => syncController.isSyncing.value
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.sync),
+                  tooltip: 'Sync',
+                  onPressed: () {
+                    debugPrint('[UI] Manual sync triggered from HomeView');
+                    syncController.syncNow();
+                  },
+                )),
           // _buildProfileMenu(),
         ],
       ),
