@@ -1,3 +1,6 @@
+# Add these dependencies for onboarding and Lottie animations
+lottie: ^2.7.0
+shared_preferences: ^2.2.2
 name: datanest
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
@@ -46,7 +49,10 @@ dependencies:
   flutter_colorpicker:
   file_picker: ^10.2.0
   connectivity_plus:
-  # Add any other UI or utility packages as needed
+
+  # Onboarding and animation dependencies
+  lottie: ^2.7.0
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
@@ -75,7 +81,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/logo/
-  #   - images/a_dot_ham.jpeg
+    - assets/logo/logo.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
