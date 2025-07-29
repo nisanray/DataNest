@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../app_constants.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'auth_gate.dart';
 
 class SignInView extends StatefulWidget {
@@ -10,6 +11,31 @@ class SignInView extends StatefulWidget {
 }
 
 class _SignInViewState extends State<SignInView> {
+  // Ensure user profile is complete (displayName, etc.)
+  Future<void> _ensureUserProfileComplete(User? user) async {
+    if (user == null) return;
+    // If displayName is missing, set it from nameController
+    if ((user.displayName == null || user.displayName!.isEmpty) &&
+        nameController.text.trim().isNotEmpty) {
+      await user.updateDisplayName(nameController.text.trim());
+      debugPrint('[AUTH] Set missing displayName for user: ${user.email}');
+    }
+    // Update Firestore user doc with displayName and email (add more fields as needed)
+    try {
+      final users = FirebaseFirestore.instance.collection('users');
+      final userDoc = users.doc(user.uid);
+      final userData = <String, dynamic>{
+        'displayName': user.displayName ?? nameController.text.trim(),
+        'email': user.email,
+        // Add more fields here if needed
+      };
+      await userDoc.set(userData, SetOptions(merge: true));
+      debugPrint('[AUTH] Synced user profile to Firestore: ${user.email}');
+    } catch (e) {
+      debugPrint('[AUTH] Failed to sync user profile to Firestore: $e');
+    }
+  }
+
   final nameController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
@@ -31,6 +57,8 @@ class _SignInViewState extends State<SignInView> {
         // Not a new user
         final authGateState = context.findAncestorStateOfType<AuthGateState>();
         if (authGateState != null) authGateState.isNewUser = false;
+        // Ensure user profile is complete after login
+        await _ensureUserProfileComplete(FirebaseAuth.instance.currentUser);
       } else {
         debugPrint(
             '[AUTH] Attempting registration for: ${emailController.text.trim()}');
@@ -41,11 +69,13 @@ class _SignInViewState extends State<SignInView> {
         );
         debugPrint(
             '[AUTH] Registration successful for: ${emailController.text.trim()}');
-        // Optionally update displayName
+        // Always set displayName on registration
         if (nameController.text.trim().isNotEmpty) {
           await userCredential.user
               ?.updateDisplayName(nameController.text.trim());
         }
+        // Ensure user profile is complete after registration
+        await _ensureUserProfileComplete(userCredential.user);
         // Mark as new user for sync flow
         final authGateState = context.findAncestorStateOfType<AuthGateState>();
         if (authGateState != null) authGateState.isNewUser = true;

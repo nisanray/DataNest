@@ -8,11 +8,84 @@ import 'package:flutter/foundation.dart';
 import '../models/task_model.dart';
 
 class SyncService {
+  // --- Pending Deletes ---
+  Future<Box> _pendingDeletesBox() async => await Hive.openBox('pending_deletes');
+
+  Future<void> markPendingDelete(String collection, String id) async {
+    final box = await _pendingDeletesBox();
+    final key = '$collection:$id:$userId';
+    await box.put(key, {'collection': collection, 'id': id, 'userId': userId});
+  }
+
+  Future<void> unmarkPendingDelete(String collection, String id) async {
+    final box = await _pendingDeletesBox();
+    final key = '$collection:$id:$userId';
+    await box.delete(key);
+  }
+
+  Future<List<Map>> getPendingDeletes() async {
+    final box = await _pendingDeletesBox();
+    return box.values.where((v) => v['userId'] == userId).cast<Map>().toList();
+  }
+
+  Future<void> syncPendingDeletes() async {
+    final pending = await getPendingDeletes();
+    for (final item in pending) {
+      try {
+        await FirebaseFirestore.instance.collection(item['collection']).doc(item['id']).delete();
+        await unmarkPendingDelete(item['collection'], item['id']);
+        debugPrint('[SYNC] Deleted from Firebase: ${item['collection']}/${item['id']}');
+      } catch (e) {
+        debugPrint('[SYNC] Failed to delete ${item['collection']}/${item['id']} from Firebase: $e');
+      }
+    }
+  }
   /// Background sync: upload all unsynced items from Hive to Firebase
   Future<void> backgroundSync() async {
     debugPrint('[SYNC] backgroundSync started for user: $userId');
+    await syncPendingDeletes();
     await syncToFirebase();
     debugPrint('[SYNC] backgroundSync completed for user: $userId');
+  }
+  // --- Delete methods for offline-first ---
+  Future<void> deleteTask(String id) async {
+    final box = await Hive.openBox<Task>('tasks');
+    await box.delete(id);
+    try {
+      await FirebaseFirestore.instance.collection('tasks').doc(id).delete();
+    } catch (e) {
+      await markPendingDelete('tasks', id);
+    }
+  }
+
+  Future<void> deleteSection(String id) async {
+    final box = await Hive.openBox<Section>('sections');
+    await box.delete(id);
+    try {
+      await FirebaseFirestore.instance.collection('sections').doc(id).delete();
+    } catch (e) {
+      await markPendingDelete('sections', id);
+    }
+  }
+
+  Future<void> deleteField(String id) async {
+    final box = await Hive.openBox<Field>('fields');
+    await box.delete(id);
+    try {
+      await FirebaseFirestore.instance.collection('fields').doc(id).delete();
+    } catch (e) {
+      await markPendingDelete('fields', id);
+    }
+  }
+
+  Future<void> deleteRecord(String id) async {
+    final box = await Hive.openBox<Record>('records');
+    await box.delete(id);
+    try {
+      await FirebaseFirestore.instance.collection('records').doc(id).delete();
+    } catch (e) {
+      await markPendingDelete('records', id);
+    }
   }
 
   final String userId;

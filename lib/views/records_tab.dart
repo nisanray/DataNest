@@ -6,6 +6,7 @@ import '../controllers/record_controller.dart';
 import '../controllers/field_controller.dart';
 import '../models/field_model.dart';
 import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -44,45 +45,25 @@ class _RecordsTabState extends State<RecordsTab> {
   Widget build(BuildContext context) {
     debugPrint('[UI] RecordsTab build');
     final settings = widget.section.settings ?? {};
-    // All logic below only reads state, never updates it
-    final List<String> fieldOrder = List<String>.from(settings['fieldOrder'] ??
-        fieldController.filteredFields.map((f) => f.name));
-    final List<String> visibleFields = List<String>.from(
-        settings['visibleFields'] ??
-            fieldController.filteredFields.map((f) => f.name));
     final Map<String, dynamic> fieldDisplay =
         Map<String, dynamic>.from(settings['fieldDisplay'] ?? {});
-    final Map<String, dynamic> fieldAlignment =
-        Map<String, dynamic>.from(settings['fieldAlignment'] ?? {});
-    final Map<String, dynamic> fieldColor =
-        Map<String, dynamic>.from(settings['fieldColor'] ?? {});
     final String? sortBy = settings['sortBy'];
     final String sortOrder = settings['sortOrder'] ?? 'asc';
+    final fields = fieldController.filteredFields;
+    final visibleFieldsOrdered = recordController.getVisibleFields(
+        settings: settings, allFields: fields);
     return ValueListenableBuilder(
       valueListenable: recordController.listenable,
       builder: (context, Box<Record> box, _) {
-        var records = List<Record>.from(recordController.filteredRecords);
-        final fields = fieldController.filteredFields;
-        // Filter by search query
-        final query = searchQuery.value.trim().toLowerCase();
-        if (query.isNotEmpty) {
-          records = records.where((record) {
-            return record.data.values
-                .any((value) => value.toString().toLowerCase().contains(query));
-          }).toList();
-        }
-        // Sort records
-        if (sortBy != null) {
-          records.sort((a, b) {
-            final aVal = a.data[sortBy];
-            final bVal = b.data[sortBy];
-            if (aVal == null && bVal == null) return 0;
-            if (aVal == null) return sortOrder == 'asc' ? -1 : 1;
-            if (bVal == null) return sortOrder == 'asc' ? 1 : -1;
-            final comparison = aVal.toString().compareTo(bVal.toString());
-            return sortOrder == 'asc' ? comparison : -comparison;
-          });
-        }
+        var records = recordController.filterAndSortRecords(
+          List<Record>.from(recordController.filteredRecords),
+          sortBy,
+          sortOrder,
+          searchQuery.value,
+          visibleFieldsOrdered.map((f) => f.name).toList(),
+          fieldDisplay,
+        );
+        // fields already defined above
         return Stack(
           children: [
             Column(
@@ -107,19 +88,12 @@ class _RecordsTabState extends State<RecordsTab> {
                           itemCount: records.length,
                           itemBuilder: (context, index) {
                             final record = records[index];
-                            String? titleValue;
-                            if (visibleFields.isNotEmpty) {
-                              final firstVisible = visibleFields.firstWhere(
-                                (f) =>
-                                    visibleFields.contains(f) &&
-                                    (fieldDisplay[f] ?? 'Normal') != 'Hidden',
-                                orElse: () => '',
-                              );
-                              if (firstVisible.isNotEmpty) {
-                                titleValue =
-                                    record.data[firstVisible]?.toString();
-                              }
-                            }
+                            String? titleValue = recordController.getTitleValue(
+                                record,
+                                visibleFieldsOrdered
+                                    .map((f) => f.name)
+                                    .toList(),
+                                fieldDisplay);
                             return Card(
                               elevation: 3,
                               shape: RoundedRectangleBorder(
@@ -176,28 +150,15 @@ class _RecordsTabState extends State<RecordsTab> {
                                       ],
                                     ),
                                     const SizedBox(height: 8),
-                                    ...fieldOrder
-                                        .where((fieldName) =>
-                                            visibleFields.contains(fieldName) &&
-                                            (fieldDisplay[fieldName] ??
-                                                    'Normal') !=
-                                                'Hidden')
-                                        .map((fieldName) {
-                                      final field = fields.firstWhereOrNull(
-                                          (f) => f.name == fieldName);
-                                      if (field == null)
-                                        return const SizedBox.shrink();
+                                    ...visibleFieldsOrdered.map((field) {
                                       final value = record.data[field.name];
-                                      final display =
-                                          fieldDisplay[field.name] ?? 'Normal';
-                                      if (display == 'Hidden')
-                                        return const SizedBox.shrink();
                                       return Padding(
                                         padding:
                                             const EdgeInsets.only(bottom: 8),
                                         child: Row(
                                           children: [
-                                            _fieldIcon(field.type),
+                                            recordController
+                                                .fieldIcon(field.type),
                                             const SizedBox(width: 8),
                                             Expanded(
                                               child: Column(
@@ -212,12 +173,47 @@ class _RecordsTabState extends State<RecordsTab> {
                                                         fontSize: 12,
                                                         color: Colors.grey),
                                                   ),
-                                                  Text(
-                                                    _formatFieldValue(
-                                                        field, value),
-                                                    style: const TextStyle(
-                                                        fontSize: 14),
-                                                  ),
+                                                  if (field.type == 'link' &&
+                                                      value != null &&
+                                                      value
+                                                          .toString()
+                                                          .isNotEmpty)
+                                                    GestureDetector(
+                                                      onTap: () async {
+                                                        final uri =
+                                                            Uri.tryParse(value
+                                                                .toString());
+                                                        if (uri != null &&
+                                                            uri.hasScheme &&
+                                                            (uri.scheme ==
+                                                                    'http' ||
+                                                                uri.scheme ==
+                                                                    'https')) {
+                                                          await launchUrl(uri,
+                                                              mode: LaunchMode
+                                                                  .externalApplication);
+                                                        }
+                                                      },
+                                                      child: Text(
+                                                        value.toString(),
+                                                        style: const TextStyle(
+                                                          color: Colors.blue,
+                                                          decoration:
+                                                              TextDecoration
+                                                                  .underline,
+                                                          fontSize: 14,
+                                                        ),
+                                                      ),
+                                                    )
+                                                  else
+                                                    Text(
+                                                      recordController
+                                                          .formatFieldValue(
+                                                              field.type,
+                                                              value),
+                                                      style: const TextStyle(
+                                                          fontSize: 14),
+                                                    ),
                                                 ],
                                               ),
                                             ),
@@ -264,71 +260,7 @@ class _RecordsTabState extends State<RecordsTab> {
     );
   }
 
-  // Helper to get an icon for a field type
-  Widget _fieldIcon(String type) {
-    switch (type) {
-      case 'date':
-      case 'datetime':
-        return const Icon(Icons.event, size: 18, color: Colors.blueGrey);
-      case 'number':
-      case 'currency':
-        return const Icon(Icons.numbers, size: 18, color: Colors.teal);
-      case 'checkbox':
-      case 'switch':
-      case 'toggle':
-        return const Icon(Icons.check_box, size: 18, color: Colors.green);
-      case 'dropdown':
-      case 'multi_select':
-      case 'radio':
-        return const Icon(Icons.list, size: 18, color: Colors.deepPurple);
-      case 'file':
-        return const Icon(Icons.attach_file, size: 18, color: Colors.orange);
-      case 'image':
-        return const Icon(Icons.image, size: 18, color: Colors.pink);
-      case 'color':
-        return const Icon(Icons.color_lens, size: 18, color: Colors.amber);
-      case 'rating':
-        return const Icon(Icons.star, size: 18, color: Colors.amber);
-      case 'password':
-        return const Icon(Icons.lock, size: 18, color: Colors.grey);
-      default:
-        return const Icon(Icons.text_fields, size: 18, color: Colors.grey);
-    }
-  }
-
-  // Helper to format field value for display
-  String _formatFieldValue(Field field, dynamic value) {
-    if (value == null) return '-';
-    switch (field.type) {
-      case 'checkbox':
-      case 'switch':
-      case 'toggle':
-        return value == true ? 'Yes' : 'No';
-      case 'multi_select':
-        if (value is List) return value.join(', ');
-        return value.toString();
-      case 'color':
-        return value.toString();
-      case 'rating':
-        return value.toString();
-      case 'date':
-      case 'datetime':
-        return value.toString().replaceFirst('T', ' ').split('.').first;
-      default:
-        return value.toString();
-    }
-  }
-
-  Color _parseColor(String hex) {
-    try {
-      final buffer = StringBuffer();
-      if (hex.length == 6 || hex.length == 7) buffer.write('ff');
-      buffer.write(hex.replaceFirst('#', ''));
-      return Color(int.parse(buffer.toString(), radix: 16));
-    } catch (_) {
-      return Colors.black87;
-    }
-  }
+  // (All business logic and helpers moved to RecordController)
 }
 
 class RecordFormDialog extends StatefulWidget {
@@ -359,11 +291,14 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
     final tag = '${widget.sectionId}_${widget.userId}';
     fieldController = Get.find<FieldController>(tag: tag);
     recordController = Get.find<RecordController>(tag: tag);
-    // Populate formData with default values after first frame
+    // Populate formData with existing record values (for edit) or defaults (for add)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final fields = fieldController.filteredFields;
       for (final field in fields) {
-        if (!formData.containsKey(field.name)) {
+        if (widget.editRecord != null &&
+            widget.editRecord!.data.containsKey(field.name)) {
+          formData[field.name] = widget.editRecord!.data[field.name];
+        } else {
           formData[field.name] = field.defaultValue;
         }
       }
@@ -428,6 +363,64 @@ class _RecordFormDialogState extends State<RecordFormDialog> {
 
   Widget _buildField(Field field) {
     switch (field.type) {
+      case 'link':
+        final url = formData[field.name]?.toString() ?? '';
+        final uri = Uri.tryParse(url);
+        bool isValidUrl = uri != null &&
+            (uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https'));
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                initialValue: url,
+                decoration: InputDecoration(
+                  labelText: field.name + ' (Link)',
+                  suffixIcon: isValidUrl
+                      ? IconButton(
+                          icon:
+                              const Icon(Icons.open_in_new, color: Colors.blue),
+                          tooltip: 'Open Link',
+                          onPressed: () async {
+                            await launchUrl(uri,
+                                mode: LaunchMode.externalApplication);
+                          },
+                        )
+                      : null,
+                ),
+                keyboardType: TextInputType.url,
+                onChanged: (val) => setState(() => formData[field.name] = val),
+                validator: field.requiredField
+                    ? (val) {
+                        if (val == null || val.isEmpty) return 'Required';
+                        final uri = Uri.tryParse(val);
+                        if (uri == null || !uri.hasAbsolutePath)
+                          return 'Invalid URL';
+                        return null;
+                      }
+                    : null,
+              ),
+              if (isValidUrl)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: GestureDetector(
+                    onTap: () async {
+                      await launchUrl(uri,
+                          mode: LaunchMode.externalApplication);
+                    },
+                    child: Text(
+                      url,
+                      style: const TextStyle(
+                        color: Colors.blue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
       case 'text':
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),

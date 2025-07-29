@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/task_model.dart';
 import '../services/task_service.dart';
+import '../services/sync_service.dart';
 
 class TaskListView extends StatefulWidget {
   final String userId;
@@ -443,7 +444,7 @@ class _TaskListViewState extends State<TaskListView> {
     );
     if (confirm == true) {
       debugPrint('[TASKS] Deleting task: ${task.id}');
-      await _taskService.deleteTask(task.id);
+      await SyncService(userId: widget.userId).deleteTask(task.id);
       _loadTasks();
       debugPrint('[TASKS] Task deleted: ${task.id}');
     } else {
@@ -454,6 +455,8 @@ class _TaskListViewState extends State<TaskListView> {
   @override
   Widget build(BuildContext context) {
     debugPrint('[TASKS] Building TaskListView UI');
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tasks'),
@@ -468,12 +471,13 @@ class _TaskListViewState extends State<TaskListView> {
       body: _tasks.isEmpty
           ? Center(
               child: Text('No tasks yet. Tap + to add.',
-                  style: Theme.of(context).textTheme.titleMedium),
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(color: colorScheme.primary)),
             )
           : ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
               itemCount: _tasks.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final task = _tasks[index];
                 final completedCount =
@@ -481,15 +485,18 @@ class _TaskListViewState extends State<TaskListView> {
                 final hasDue = task.dueDate != null;
                 final hasReminder = task.reminder != null;
                 return Card(
-                  elevation: 2,
+                  elevation: 3,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  margin:
+                      const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(18),
                     onTap: () => _editTask(task),
                     child: Padding(
-                      padding: const EdgeInsets.only(
-                          left: 8, right: 16, top: 12, bottom: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -525,27 +532,30 @@ class _TaskListViewState extends State<TaskListView> {
                                         _loadTasks();
                                       },
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   task.title,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        decoration: completedCount ==
-                                                    task.subtasks.length &&
-                                                task.subtasks.isNotEmpty
-                                            ? TextDecoration.lineThrough
-                                            : null,
-                                      ),
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    decoration: completedCount ==
+                                                task.subtasks.length &&
+                                            task.subtasks.isNotEmpty
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                    color: completedCount ==
+                                                task.subtasks.length &&
+                                            task.subtasks.isNotEmpty
+                                        ? colorScheme.primary.withOpacity(0.6)
+                                        : colorScheme.onSurface,
+                                  ),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline),
+                                icon: Icon(Icons.delete_outline,
+                                    color: colorScheme.error),
                                 tooltip: 'Delete',
                                 onPressed: () => _deleteTask(task),
                               ),
@@ -557,10 +567,8 @@ class _TaskListViewState extends State<TaskListView> {
                               padding: const EdgeInsets.only(top: 4, bottom: 2),
                               child: Text(
                                 task.description!,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(color: Colors.grey[700]),
+                                style: theme.textTheme.bodyMedium
+                                    ?.copyWith(color: colorScheme.secondary),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -577,51 +585,64 @@ class _TaskListViewState extends State<TaskListView> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.center,
                                       children: [
-                                        // Icon(
-                                        //   Icons.check_box,
-                                        //   size: 20,
-                                        //   color: completedCount == task.subtasks.length && task.subtasks.isNotEmpty
-                                        //       ? Colors.green[700]
-                                        //       : (completedCount > 0 ? Colors.orange[700] : Colors.grey[400]),
-                                        // ),
                                         const SizedBox(width: 6),
                                         Text(
                                           'Subtasks',
-                                          style: TextStyle(
+                                          style: theme.textTheme.titleSmall
+                                              ?.copyWith(
                                             fontWeight: FontWeight.w600,
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .primary,
+                                            color: colorScheme.primary,
                                             fontSize: 15,
                                           ),
                                         ),
                                         const SizedBox(width: 10),
                                         Container(
                                           padding: const EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 2),
+                                              horizontal: 10, vertical: 3),
                                           decoration: BoxDecoration(
                                             color: completedCount ==
                                                         task.subtasks.length &&
                                                     task.subtasks.isNotEmpty
-                                                ? Colors.green[50]
+                                                ? const Color(
+                                                    0xFFD1FAE5) // pastel green
                                                 : (completedCount > 0
-                                                    ? Colors.orange[50]
-                                                    : Colors.grey[100]),
+                                                    ? const Color(
+                                                        0xFFFFF7AE) // pastel yellow
+                                                    : const Color(
+                                                        0xFFE0E7EF)), // pastel blue-grey
                                             borderRadius:
-                                                BorderRadius.circular(8),
+                                                BorderRadius.circular(10),
+                                            border: Border.all(
+                                              color: completedCount ==
+                                                          task.subtasks
+                                                              .length &&
+                                                      task.subtasks.isNotEmpty
+                                                  ? const Color(
+                                                      0xFF34D399) // green accent
+                                                  : (completedCount > 0
+                                                      ? const Color(
+                                                          0xFFFBBF24) // yellow accent
+                                                      : const Color(
+                                                          0xFFCBD5E1)), // blue-grey accent
+                                              width: 1.2,
+                                            ),
                                           ),
                                           child: Row(
                                             children: [
-                                              Icon(Icons.check,
-                                                  size: 14,
+                                              Icon(Icons.check_circle,
+                                                  size: 15,
                                                   color: completedCount ==
                                                               task.subtasks
                                                                   .length &&
                                                           task.subtasks
                                                               .isNotEmpty
-                                                      ? Colors.green
-                                                      : Colors.orange),
-                                              const SizedBox(width: 2),
+                                                      ? const Color(0xFF34D399)
+                                                      : (completedCount > 0
+                                                          ? const Color(
+                                                              0xFFFBBF24)
+                                                          : const Color(
+                                                              0xFF94A3B8))),
+                                              const SizedBox(width: 4),
                                               Text(
                                                 '$completedCount/${task.subtasks.length}',
                                                 style: TextStyle(
@@ -631,10 +652,12 @@ class _TaskListViewState extends State<TaskListView> {
                                                                   .length &&
                                                           task.subtasks
                                                               .isNotEmpty
-                                                      ? Colors.green[700]
+                                                      ? const Color(0xFF059669)
                                                       : (completedCount > 0
-                                                          ? Colors.orange[700]
-                                                          : Colors.grey[700]),
+                                                          ? const Color(
+                                                              0xFFB45309)
+                                                          : const Color(
+                                                              0xFF64748B)),
                                                   fontSize: 14,
                                                 ),
                                               ),
@@ -653,13 +676,13 @@ class _TaskListViewState extends State<TaskListView> {
                                           : completedCount /
                                               task.subtasks.length,
                                       minHeight: 7,
-                                      backgroundColor: Colors.grey.shade200,
+                                      backgroundColor: const Color(0xFFF1F5F9),
                                       valueColor: AlwaysStoppedAnimation<Color>(
                                         completedCount == task.subtasks.length
-                                            ? Colors.green
+                                            ? const Color(0xFF34D399) // green
                                             : (completedCount > 0
-                                                ? Colors.orange
-                                                : Colors.blue),
+                                                ? const Color(0xFFFBBF24)
+                                                : const Color(0xFF6C63FF)),
                                       ),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
@@ -701,14 +724,16 @@ class _TaskListViewState extends State<TaskListView> {
                                             Expanded(
                                               child: Text(
                                                 sub.title,
-                                                style: TextStyle(
+                                                style: theme
+                                                    .textTheme.bodyMedium
+                                                    ?.copyWith(
                                                   decoration: sub.completed
                                                       ? TextDecoration
                                                           .lineThrough
                                                       : null,
                                                   color: sub.completed
                                                       ? Colors.grey
-                                                      : null,
+                                                      : colorScheme.onSurface,
                                                 ),
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
@@ -720,16 +745,18 @@ class _TaskListViewState extends State<TaskListView> {
                                                     left: 4),
                                                 child: Row(
                                                   children: [
-                                                    const Icon(
-                                                        Icons.calendar_today,
+                                                    Icon(Icons.calendar_today,
                                                         size: 16,
-                                                        color: Colors.blue),
+                                                        color: colorScheme
+                                                            .primary),
                                                     const SizedBox(width: 2),
                                                     Text(
                                                       '${sub.dueDate!.toLocal().toString().split(' ')[0]}',
-                                                      style: const TextStyle(
-                                                          fontSize: 12,
-                                                          color: Colors.blue),
+                                                      style: theme
+                                                          .textTheme.bodySmall
+                                                          ?.copyWith(
+                                                              color: colorScheme
+                                                                  .primary),
                                                     ),
                                                   ],
                                                 ),
@@ -740,15 +767,18 @@ class _TaskListViewState extends State<TaskListView> {
                                                     left: 4),
                                                 child: Row(
                                                   children: [
-                                                    const Icon(Icons.alarm,
+                                                    Icon(Icons.alarm,
                                                         size: 16,
-                                                        color: Colors.orange),
+                                                        color: colorScheme
+                                                            .secondary),
                                                     const SizedBox(width: 2),
                                                     Text(
                                                       '${sub.reminder!.toLocal().toString().split(' ')[0]}',
-                                                      style: const TextStyle(
-                                                          fontSize: 12,
-                                                          color: Colors.orange),
+                                                      style: theme
+                                                          .textTheme.bodySmall
+                                                          ?.copyWith(
+                                                              color: colorScheme
+                                                                  .secondary),
                                                     ),
                                                   ],
                                                 ),
@@ -764,13 +794,14 @@ class _TaskListViewState extends State<TaskListView> {
                               if (hasDue)
                                 Row(
                                   children: [
-                                    const Icon(Icons.calendar_today,
-                                        size: 18, color: Colors.blue),
+                                    Icon(Icons.calendar_today,
+                                        size: 18, color: colorScheme.primary),
                                     const SizedBox(width: 4),
                                     Text(
                                         'Due: ${task.dueDate!.toLocal().toString().split(' ')[0]}',
-                                        style: const TextStyle(
-                                            color: Colors.blue)),
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                                color: colorScheme.primary)),
                                   ],
                                 ),
                               if (hasDue && hasReminder)
@@ -778,13 +809,14 @@ class _TaskListViewState extends State<TaskListView> {
                               if (hasReminder)
                                 Row(
                                   children: [
-                                    const Icon(Icons.alarm,
-                                        size: 18, color: Colors.orange),
+                                    Icon(Icons.alarm,
+                                        size: 18, color: colorScheme.secondary),
                                     const SizedBox(width: 4),
                                     Text(
                                         'Remind: ${task.reminder!.toLocal().toString().split(' ')[0]}',
-                                        style: const TextStyle(
-                                            color: Colors.orange)),
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                                color: colorScheme.secondary)),
                                   ],
                                 ),
                             ],

@@ -77,16 +77,16 @@ class _SplashScreenState extends State<SplashScreen>
                   Text(
                     AppStrings.appName,
                     style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppConstants.primaryColor,
-                    ),
+                          fontWeight: FontWeight.bold,
+                          color: AppConstants.primaryColor,
+                        ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     AppStrings.slogan,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppConstants.textSecondary,
-                    ),
+                          color: AppConstants.textSecondary,
+                        ),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -98,4 +98,3 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 }
-

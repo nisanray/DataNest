@@ -13,6 +13,7 @@ import '../models/field_model.dart';
 import 'package:hive/hive.dart';
 import 'dart:convert';
 import '../app_constants.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'hive_data_viewer.dart';
 import '../services/sync_service.dart';
@@ -33,33 +34,23 @@ class _HomeViewState extends State<HomeView>
     with SingleTickerProviderStateMixin {
   late SectionController sectionController;
   late TabController _tabController;
-  String _recordSearchQuery = '';
-  int _selectedNavIndex = 0;
-  Timer? _periodicSyncTimer;
 
   @override
   void initState() {
     super.initState();
-    sectionController =
-        Get.put(SectionController(userId: widget.userId), tag: widget.userId);
-    debugPrint('[UI] HomeView initialized for user: ${widget.userId}');
-    // Only start background sync after entering home
-    Future.microtask(() async {
-      await SyncService(userId: widget.userId).backgroundSync();
-    });
-    _tabController = TabController(length: 2, vsync: this);
-    // Start periodic sync every AppConstants.syncIntervalMinutes
-    _periodicSyncTimer = Timer.periodic(
-        Duration(minutes: AppConstants.syncIntervalMinutes), (timer) async {
-      debugPrint('[SYNC] Periodic background sync triggered');
-      try {
-        final syncController = Get.find<SyncStatusController>();
-        await syncController.syncNow();
-      } catch (e) {
-        debugPrint('[SYNC] Error during periodic sync: $e');
-      }
-    });
+    // Ensure SectionController is registered with GetX for this userId
+    final tag = widget.userId;
+    if (!Get.isRegistered<SectionController>(tag: tag)) {
+      Get.put(SectionController(userId: tag), tag: tag);
+    }
+    sectionController = Get.find<SectionController>(tag: tag);
+    // Initialize _tabController with a default length (adjust as needed)
+    _tabController = TabController(length: 1, vsync: this);
   }
+
+  String _recordSearchQuery = '';
+  int _selectedNavIndex = 0;
+  Timer? _periodicSyncTimer;
 
   @override
   void dispose() {
@@ -130,24 +121,106 @@ class _HomeViewState extends State<HomeView>
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            UserAccountsDrawerHeader(
-              accountName: Text('User'),
-              accountEmail: Text('user@example.com'),
-              currentAccountPicture: const CircleAvatar(
-                backgroundColor: Colors.white,
-                child: Icon(Icons.person, size: 40, color: Colors.deepPurple),
-              ),
-              otherAccountsPictures: [
-                IconButton(
-                  icon: const Icon(Icons.settings, color: Colors.white),
-                  tooltip: 'Settings',
-                  onPressed: () {
-                    debugPrint('[UI] Settings icon tapped in drawer');
-                    Navigator.pop(context);
-                    setState(() => _selectedNavIndex = 3);
-                  },
-                ),
-              ],
+            Builder(
+              builder: (context) {
+                final user = FirebaseAuth.instance.currentUser;
+                return UserAccountsDrawerHeader(
+                  accountName: Row(
+                    children: [
+                      Expanded(child: Text(user?.displayName ?? 'User')),
+                      IconButton(
+                        icon: const Icon(Icons.edit,
+                            size: 18, color: Colors.white),
+                        tooltip: 'Edit Profile',
+                        onPressed: () async {
+                          final nameController = TextEditingController(
+                              text: user?.displayName ?? '');
+                          final emailController =
+                              TextEditingController(text: user?.email ?? '');
+                          final result = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Edit Profile'),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  TextField(
+                                    controller: nameController,
+                                    decoration: const InputDecoration(
+                                        labelText: 'Name'),
+                                  ),
+                                  TextField(
+                                    controller: emailController,
+                                    decoration: const InputDecoration(
+                                        labelText: 'Email'),
+                                    enabled:
+                                        false, // Email change requires re-auth
+                                  ),
+                                  // Add more fields here if needed
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text('Save'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (result == true &&
+                              nameController.text.trim().isNotEmpty) {
+                            // Update FirebaseAuth displayName if changed or missing
+                            if (user?.displayName !=
+                                nameController.text.trim()) {
+                              await user?.updateDisplayName(
+                                  nameController.text.trim());
+                            }
+                            // Update Firestore user doc with new info
+                            try {
+                              final users = FirebaseFirestore.instance
+                                  .collection('users');
+                              final userDoc = users.doc(user?.uid);
+                              final userData = <String, dynamic>{
+                                'displayName': nameController.text.trim(),
+                                'email': user?.email,
+                                // Add more fields here if needed
+                              };
+                              await userDoc.set(
+                                  userData, SetOptions(merge: true));
+                            } catch (e) {
+                              debugPrint(
+                                  '[AUTH] Failed to sync user profile to Firestore: $e');
+                            }
+                            setState(() {});
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  accountEmail: Text(user?.email ?? ''),
+                  currentAccountPicture: const CircleAvatar(
+                    backgroundColor: Colors.white,
+                    child:
+                        Icon(Icons.person, size: 40, color: Colors.deepPurple),
+                  ),
+                  otherAccountsPictures: [
+                    IconButton(
+                      icon: const Icon(Icons.settings, color: Colors.white),
+                      tooltip: 'Settings',
+                      onPressed: () {
+                        debugPrint('[UI] Settings icon tapped in drawer');
+                        Navigator.pop(context);
+                        setState(() => _selectedNavIndex = 3);
+                      },
+                    ),
+                  ],
+                );
+              },
             ),
             ListTile(
               leading: const Icon(Icons.dashboard),

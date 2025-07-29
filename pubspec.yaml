@@ -53,6 +53,7 @@ dependencies:
   # Onboarding and animation dependencies
   lottie: ^2.7.0
   shared_preferences: ^2.2.2
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
